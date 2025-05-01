@@ -1,0 +1,15 @@
+{
+  "name": "verification-connaissances",
+  "version": "1.0.0",
+  "description": "Vérification des connaissances des étudiants à l'aide d'une GitHub Action",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "nodemailer": "^6.10.1"
+  }
+}
