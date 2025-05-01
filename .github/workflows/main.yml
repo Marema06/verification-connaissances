@@ -18,8 +18,15 @@ jobs:
         with:
           node-version: '16'
 
+      - name: Vérifier la présence de package.json
+        run: |
+          if [ ! -f package.json ]; then
+            echo "Erreur : package.json est manquant."
+            exit 1
+          fi
+
       - name: Installer les dépendances
         run: npm install
 
       - name: Lancer le script de vérification des connaissances
-        run: node src/index.js  # Exécuter ton script principal
+        run: node src/index.js
