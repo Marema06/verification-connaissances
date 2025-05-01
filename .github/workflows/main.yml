@@ -1,0 +1,25 @@
+name: Vérification des connaissances
+
+on:
+  push:
+    branches:
+      - main  # Exécuter l'action sur chaque push vers la branche main
+
+jobs:
+  verification:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Vérification du code
+        uses: actions/checkout@v2  # Pour récupérer le code du dépôt
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Installer les dépendances
+        run: npm install
+
+      - name: Lancer le script de vérification des connaissances
+        run: node src/index.js  # Exécuter ton script principal
