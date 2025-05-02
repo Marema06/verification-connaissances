@@ -15,7 +15,7 @@ jobs:
       - name: 🔧 Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "18"
+          node-version: "16"
 
       - name: 📦 Installer les dépendances
         run: npm install
@@ -28,13 +28,19 @@ jobs:
       - name: 🐛 Debug workspace
         run: ls -lah
 
-      - name: 📁 Uploader le PDF
-        if: ${{ runner.os == 'Linux' }}
+      - name: 📁 Vérifier et préparer le PDF pour upload
         run: |
           if [ -f exo_etudiant.pdf ]; then
-            echo "Le fichier PDF existe, téléchargement en cours..."
-            gh actions upload-artifact exo_etudiant.pdf --path exo_etudiant.pdf
+            echo "Le fichier exo_etudiant.pdf existe. Upload en cours..."
+            mkdir upload
+            cp exo_etudiant.pdf upload/
           else
-            echo "Le fichier PDF n'existe pas, arrêt du processus."
+            echo "Le fichier exo_etudiant.pdf est introuvable."
             exit 1
           fi
+
+      - name: 📤 Upload de l’artéfact PDF
+        uses: actions/upload-artifact@v3
+        with:
+          name: exo_etudiant
+          path: upload/exo_etudiant.pdf
