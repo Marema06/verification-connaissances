@@ -15,7 +15,7 @@ jobs:
       - name: 🔧 Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "16"
+          node-version: "18"
 
       - name: 📦 Installer les dépendances
         run: npm install
@@ -33,7 +33,7 @@ jobs:
         run: |
           if [ -f exo_etudiant.pdf ]; then
             echo "Le fichier PDF existe, téléchargement en cours..."
-            gh actions upload-artifact --name exo_etudiant --path exo_etudiant.pdf
+            gh actions upload-artifact exo_etudiant.pdf --path exo_etudiant.pdf
           else
             echo "Le fichier PDF n'existe pas, arrêt du processus."
             exit 1
