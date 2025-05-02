@@ -72,5 +72,5 @@ Un nouveau QCM a été généré avec succès :
 labels: ['rapport', 'qcm']
 });
   } catch (error) {
-core.error(`Erreur création issue: ${error}`);
+core.error('Erreur création issue: ' + error);
 }
