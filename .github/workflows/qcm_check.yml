@@ -40,7 +40,7 @@ jobs:
           fi
 
       - name: 📤 Upload de l’artéfact PDF
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2
         with:
           name: exo_etudiant
           path: upload/exo_etudiant.pdf
