@@ -1,33 +1,76 @@
-- name: 📝 Créer une Issue de rapport pour le professeur
-  uses: actions/github-script@v6
-  with:
-    script: |
-      const fs = require('fs');
-      try {
-        // Vérifier si le fichier PDF existe
-        const pdfExists = fs.existsSync('exo_etudiant.pdf');
-        const pdfSize = pdfExists ? Math.round(fs.statSync('exo_etudiant.pdf').size / 1024) + ' Ko' : 'Fichier non trouvé';
+name: Génération QCM & PDF
 
-        // Créer l'issue
-        await github.rest.issues.create({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          title: `[Rapport] Nouveau QCM généré - ${new Date().toLocaleDateString()}`,
-          body: `Bonjour Professeur·e,
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+
+      - name: 📦 Installer les dépendances
+        run: npm install
+
+      - name: 🤖 Générer QCM & code à trous & PDF
+        run: node src/index.js
+        env:
+          HF_API_KEY: ${{ secrets.HF_API_KEY }}
+
+      - name: 🐛 Debug workspace
+        run: ls -lah
+
+      - name: 📁 Vérifier et préparer le PDF pour upload
+        run: |
+          if [ -f exo_etudiant.pdf ]; then
+            echo "Le fichier exo_etudiant.pdf existe. Upload en cours..."
+            mkdir upload
+            cp exo_etudiant.pdf upload/
+          else
+            echo "Le fichier exo_etudiant.pdf est introuvable."
+            exit 1
+          fi
+
+      - name: 📤 Upload de l'artéfact PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: exo_etudiant
+          path: upload/exo_etudiant.pdf
+
+      - name: 📝 Créer une Issue de rapport
+        uses: actions/github-script@v6
+        if: success()
+        with:
+          script: |
+            const fs = require('fs');
+            try {
+              const pdfExists = fs.existsSync('exo_etudiant.pdf');
+              const pdfSize = pdfExists ? (fs.statSync('exo_etudiant.pdf').size / 1024).toFixed(2) + ' Ko' : 'Fichier non trouvé';
+
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `[Rapport] QCM généré - ${new Date().toLocaleDateString('fr-FR')}`,
+                body: `Bonjour Professeur,
 
 Un nouveau QCM a été généré avec succès :
 
-  - **Date**: ${new Date().toLocaleString()}
-  - **Fichier PDF**: [exo_etudiant.pdf](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
-  - **Taille du PDF**: ${pdfSize}
-  - **Lien direct vers l'artéfact**: Voir les "Artifacts" dans l'onglet Actions
-
-  Pouvez-vous vérifier le contenu et le valider ?
+• Date: ${new Date().toLocaleString('fr-FR')}
+• Taille PDF: ${pdfSize}
+• Lien: https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}
 
   Cordialement,
-  Votre assistant de génération de QCM`,
+  Votre assistant QCM`,
 labels: ['rapport', 'qcm']
 });
   } catch (error) {
-core.setFailed(`Échec de la création de l'issue: ${error}`);
+core.error(`Erreur création issue: ${error}`);
 }
