@@ -2,7 +2,7 @@ name: Génération QCM & PDF
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build:
@@ -20,57 +20,44 @@ jobs:
       - name: 📦 Installer les dépendances
         run: npm install
 
-      - name: 🤖 Générer QCM & code à trous & PDF
+      - name: 🤖 Générer QCM & PDF
         run: node src/index.js
         env:
-          HF_API_KEY: ${{ secrets.HF_API_KEY }}
+          HF_API_KEY: ${{secrets.HF_API_KEY}}
 
       - name: 🐛 Debug workspace
         run: ls -lah
 
-      - name: 📁 Vérifier et préparer le PDF pour upload
+      - name: 📁 Préparer l'artefact PDF
         run: |
-          if [ -f exo_etudiant.pdf ]; then
-            echo "Le fichier exo_etudiant.pdf existe. Upload en cours..."
-            mkdir upload
-            cp exo_etudiant.pdf upload/
-          else
-            echo "Le fichier exo_etudiant.pdf est introuvable."
-            exit 1
-          fi
+          mkdir -p upload
+          [ -f exo_etudiant.pdf ] && cp exo_etudiant.pdf upload/ || exit 1
 
-      - name: 📤 Upload de l'artéfact PDF
+      - name: 📤 Upload PDF
         uses: actions/upload-artifact@v4
         with:
-          name: exo_etudiant
+          name: qcm-pdf
           path: upload/exo_etudiant.pdf
 
-      - name: 📝 Créer une Issue de rapport
-        uses: actions/github-script@v6
+      - name: 📝 Création Issue Rapport
         if: success()
+        uses: actions/github-script@v6
+        env:
+          PDF_SIZE: ${{ steps.prepare-pdf.outputs.size }}
         with:
           script: |
-            const fs = require('fs');
             try {
-              const pdfExists = fs.existsSync('exo_etudiant.pdf');
-              const pdfSize = pdfExists ? (fs.statSync('exo_etudiant.pdf').size / 1024).toFixed(2) + ' Ko' : 'Fichier non trouvé';
-
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title: `[Rapport] QCM généré - ${new Date().toLocaleDateString('fr-FR')}`,
-                body: `Bonjour Professeur,
-
-Un nouveau QCM a été généré avec succès :
-
-• Date: ${new Date().toLocaleString('fr-FR')}
-• Taille PDF: ${pdfSize}
-• Lien: https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}
-
-  Cordialement,
-  Votre assistant QCM`,
-labels: ['rapport', 'qcm']
-});
-  } catch (error) {
-core.error('Erreur création issue: ' + error);
-}
+                title: `[Rapport] QCM Généré - ${new Date().toISOString().split('T')[0]}`,
+                body: `## Rapport de Génération QCM\n\n` +
+                      `✅ Génération terminée avec succès\n` +
+                      `📅 Date: ${new Date().toLocaleString('fr-FR')}\n` +
+                      `📄 Fichier: [exo_etudiant.pdf](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\n` +
+                      `Merci de vérifier le contenu.`,
+                labels: ['rapport', 'qcm']
+              });
+            } catch (error) {
+              core.setFailed('Erreur création issue: ' + error.message);
+            }
