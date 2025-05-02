@@ -25,8 +25,13 @@ jobs:
         env:
           HF_API_KEY: ${{ secrets.HF_API_KEY }}
 
+      - name: 🐛 Debug workspace
+        run: ls -lah
+
       - name: 📁 Uploader le PDF
+        if: ${{ exists('exo_etudiant.pdf') }}
         uses: actions/upload-artifact@v3
         with:
           name: exo_etudiant
           path: exo_etudiant.pdf
+
