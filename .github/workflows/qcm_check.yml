@@ -39,8 +39,8 @@ jobs:
             exit 1
           fi
 
-      - name: 📤 Upload de l’artéfact PDF
-        uses: actions/upload-artifact@v2
+      - name: 📤 Upload de l'artéfact PDF
+        uses: actions/upload-artifact@v4
         with:
           name: exo_etudiant
           path: upload/exo_etudiant.pdf
