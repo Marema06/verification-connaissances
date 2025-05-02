@@ -29,9 +29,12 @@ jobs:
         run: ls -lah
 
       - name: 📁 Uploader le PDF
-        if: ${{ exists('exo_etudiant.pdf') }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: exo_etudiant
-          path: exo_etudiant.pdf
-
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          if [ -f exo_etudiant.pdf ]; then
+            echo "Le fichier PDF existe, téléchargement en cours..."
+            gh actions upload-artifact --name exo_etudiant --path exo_etudiant.pdf
+          else
+            echo "Le fichier PDF n'existe pas, arrêt du processus."
+            exit 1
+          fi
