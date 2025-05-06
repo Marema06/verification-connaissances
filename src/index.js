@@ -1,61 +1,52 @@
+require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
-const { generateQCMwithHF } = require("./services/hf");
 const nodemailer = require("nodemailer");
-require("dotenv").config();
+const { generateQCMwithHF } = require("./services/hf");
 
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
-const emailRecipient = "msarr0938@gmail.com"; // Email de l'étudiant
+if (!EMAIL_USER || !EMAIL_PASS) throw new Error("❌ Définis EMAIL_USER et EMAIL_PASS dans .env");
+
+const emailRecipient = process.env.EMAIL_TO;
+if (!emailRecipient) throw new Error("❌ Définis EMAIL_TO dans .env");
 
 async function sendEmail(recipient, qcmMarkdown) {
   const transporter = nodemailer.createTransport({
     service: "gmail",
-    auth: {
-      user: EMAIL_USER,
-      pass: EMAIL_PASS,
-    },
+    auth: { user: EMAIL_USER, pass: EMAIL_PASS },
   });
 
-  const mailOptions = {
+  await transporter.sendMail({
     from: EMAIL_USER,
     to: recipient,
-    subject: "QCM de vérification de connaissances",
+    subject: "🔎 Votre QCM de vérification de code",
     text: qcmMarkdown,
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-    console.log("✅ Email envoyé à", recipient);
-  } catch (error) {
-    console.error("❌ Erreur d'envoi de l'email :", error);
-  }
+  });
+  console.log("✅ Email envoyé à", recipient);
 }
 
 async function generateAndSendQCM() {
-  try {
-    // Lire tout le code JavaScript du dépôt
-    const codeDir = path.join(__dirname, "..", "src");
-    let fullCode = "";
-
-    // Parcours tous les fichiers du répertoire src
-    const files = fs.readdirSync(codeDir);
-    for (const file of files) {
-      if (file.endsWith(".js")) { // Vérifier si le fichier est un JS
-        const code = fs.readFileSync(path.join(codeDir, file), "utf-8");
-        fullCode += code + "\n\n";
-      }
+  // 1) Récupérer tout le code JS du dépôt (dans src/)
+  const codeDir = path.resolve(__dirname, "src");
+  let fullCode = "";
+  for (const f of fs.readdirSync(codeDir)) {
+    if (f.endsWith(".js")) {
+      fullCode += fs.readFileSync(path.join(codeDir, f), "utf-8") + "\n\n";
     }
-
-    // Générer le QCM à partir du code complet
-    const qcmMarkdown = await generateQCMwithHF(fullCode);
-    console.log("✅ QCM généré :\n", qcmMarkdown);
-
-    // Envoyer le QCM à l'étudiant
-    await sendEmail(emailRecipient, qcmMarkdown);
-  } catch (err) {
-    console.error("❌ Erreur globale :", err);
   }
+  if (!fullCode.trim()) throw new Error("❌ Pas de code JS trouvé dans src/");
+
+  // 2) Générer le QCM
+  console.log("⏳ Génération du QCM...");
+  const qcmMd = await generateQCMwithHF(fullCode);
+  console.log("✅ QCM généré");
+
+  // 3) Envoyer le QCM par email
+  await sendEmail(emailRecipient, qcmMd);
 }
 
-generateAndSendQCM();
+generateAndSendQCM().catch(err => {
+  console.error("❌ Erreur :", err.message || err);
+  process.exit(1);
+});

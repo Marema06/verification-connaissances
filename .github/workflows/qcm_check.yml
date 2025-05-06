@@ -1,29 +1,28 @@
-name: Génération QCM et Envoi Email
+name: Génération QCM automatique
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+    paths:
+      - 'src/**'     # se déclenche si du JS change
 
 jobs:
-  generate_qcm:
+  generate-and-mail:
     runs-on: ubuntu-latest
-
     steps:
-      - name: 📥 Checkout du code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: 🔧 Configuration de Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v3
-        with:
-          node-version: '16'
+        with: { node-version: '18' }
 
-      - name: 📦 Installer les dépendances
+      - name: Installer dépendances
         run: npm install
 
-      - name: 🤖 Exécuter la génération du QCM et envoyer l'email
-        run: node src/index.js
+      - name: Générer et envoyer QCM
+        run: node index.js
         env:
+          HF_API_KEY: ${{ secrets.HF_API_KEY }}
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
-          HF_API_KEY: ${{ secrets.HF_API_KEY }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
