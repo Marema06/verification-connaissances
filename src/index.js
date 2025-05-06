@@ -75,6 +75,6 @@ function addition(a, b) {
 }
 `;
 
-const emailRecipient = "etudiant@example.com";
+const emailRecipient = "msarr0938@gmail.com";
 
 generateAndSendQCM(codeExample, emailRecipient);
