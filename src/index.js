@@ -1,19 +1,14 @@
 const fs = require("fs");
 const path = require("path");
-const nodemailer = require("nodemailer");
 const { generateQCMwithHF } = require("./services/hf");
-const { generateCodeWithHoles } = require("./generateHoles");
-const { generatePDF } = require("./generatePDF");
+const nodemailer = require("nodemailer");
 require("dotenv").config();
 
-// Variables d'environnement
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
+const emailRecipient = "msarr0938@gmail.com"; // Email de l'étudiant
 
-/**
- * Envoie un email avec le PDF attaché
- */
-async function sendEmail(recipient, qcmMarkdown, pdfPath) {
+async function sendEmail(recipient, qcmMarkdown) {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -27,54 +22,40 @@ async function sendEmail(recipient, qcmMarkdown, pdfPath) {
     to: recipient,
     subject: "QCM de vérification de connaissances",
     text: qcmMarkdown,
-    attachments: [
-      {
-        filename: "qcm_et_code.pdf",
-        path: pdfPath,
-      },
-    ],
   };
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Email envoyé à ${recipient}`);
+    console.log("✅ Email envoyé à", recipient);
   } catch (error) {
     console.error("❌ Erreur d'envoi de l'email :", error);
   }
 }
 
-/**
- * Fonction principale
- */
-async function generateAndSendQCM(code, emailRecipient) {
+async function generateAndSendQCM() {
   try {
-    // Étape 1 : générer le QCM
-    const qcmMarkdown = await generateQCMwithHF(code);
-    console.log("✅ QCM généré");
+    // Lire tout le code JavaScript du dépôt
+    const codeDir = path.join(__dirname, "..", "src");
+    let fullCode = "";
 
-    // Étape 2 : générer code à trous
-    const codeATrous = generateCodeWithHoles(code);
-    console.log("✅ Code à trous généré");
+    // Parcours tous les fichiers du répertoire src
+    const files = fs.readdirSync(codeDir);
+    for (const file of files) {
+      if (file.endsWith(".js")) { // Vérifier si le fichier est un JS
+        const code = fs.readFileSync(path.join(codeDir, file), "utf-8");
+        fullCode += code + "\n\n";
+      }
+    }
 
-    // Étape 3 : créer un PDF combiné
-    const pdfPath = path.join(__dirname, "output_qcm.pdf");
-    generatePDF(qcmMarkdown, codeATrous, pdfPath);
-    console.log("✅ PDF généré :", pdfPath);
+    // Générer le QCM à partir du code complet
+    const qcmMarkdown = await generateQCMwithHF(fullCode);
+    console.log("✅ QCM généré :\n", qcmMarkdown);
 
-    // Étape 4 : envoyer email
-    await sendEmail(emailRecipient, qcmMarkdown, pdfPath);
-  } catch (error) {
-    console.error("❌ Erreur globale :", error);
+    // Envoyer le QCM à l'étudiant
+    await sendEmail(emailRecipient, qcmMarkdown);
+  } catch (err) {
+    console.error("❌ Erreur globale :", err);
   }
 }
 
-// Exemple d’utilisation
-const codeExample = `
-function addition(a, b) {
-  return a + b;
-}
-`;
-
-const emailRecipient = "msarr0938@gmail.com";
-
-generateAndSendQCM(codeExample, emailRecipient);
+generateAndSendQCM();
