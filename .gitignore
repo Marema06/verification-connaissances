@@ -1,5 +1,24 @@
-echo ".env" >> .gitignore
-git add .gitignore
-git commit -m "Ignore .env"
-git push origin main
-verification-connaissances.git/
+# Ignorer le fichier .env
+.env
+
+# Ignorer les modules node
+/node_modules/
+
+# Ignorer les logs
+*.log
+
+# Ignorer les fichiers de sortie de build
+/dist/
+build/
+
+# Ignorer les fichiers temporaires
+*.tmp
+*.swp
+
+# Ignorer les fichiers de configuration IDE (ex: VSCode)
+.vscode/
+.idea/
+
+# Ignorer les fichiers d'exécution
+*.exe
+*.out
