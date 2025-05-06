@@ -1,29 +1,32 @@
-name: Génération QCM automatique
+name: Vérification et envoi QCM
 
 on:
   push:
     branches: [main]
     paths:
-      - 'src/**'     # se déclenche si du JS change
+      - 'src/**'
 
 jobs:
   generate-and-mail:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - name: 📥 Checkout du code
+        uses: actions/checkout@v3
 
-      - name: Setup Node.js
+      - name: 🔧 Setup Node.js
         uses: actions/setup-node@v3
-        with: { node-version: '18' }
+        with:
+          node-version: '18'
 
-      - name: Installer dépendances
+      - name: 📦 Installer les dépendances
         run: npm install
 
-      - name: Générer et envoyer QCM
+      - name: 🤖 Générer et envoyer le QCM
+        # ⚠️ On appelle bien src/index.js et non index.js
         run: node src/index.js
         env:
           HF_API_KEY: ${{ secrets.HF_API_KEY }}
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-
