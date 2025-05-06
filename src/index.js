@@ -4,68 +4,69 @@ const path = require("path");
 const nodemailer = require("nodemailer");
 const { generateQCMwithHF } = require("./services/hf");
 
+// Chargement des variables d'environnement
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
-if (!EMAIL_USER || !EMAIL_PASS) throw new Error("❌ Définis EMAIL_USER et EMAIL_PASS dans .env");
+if (!EMAIL_USER || !EMAIL_PASS) {
+  throw new Error("❌ Définis EMAIL_USER et EMAIL_PASS dans .env");
+}
 
 const emailRecipient = process.env.EMAIL_TO;
-if (!emailRecipient) throw new Error("❌ Définis EMAIL_TO dans .env");
+if (!emailRecipient) {
+  throw new Error("❌ Définis EMAIL_TO dans .env");
+}
 
-/**
- * Envoie un email avec debug activé pour Nodemailer
- */
 async function sendEmail(recipient, qcmMarkdown) {
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
     auth: { user: EMAIL_USER, pass: EMAIL_PASS },
-    logger: true,   // active les logs
-    debug: true     // affiche la conversation SMTP
+    logger: true,
+    debug: true
   });
 
-  // Vérifier la connexion SMTP avant l'envoi
+  // Vérification du serveur SMTP
   transporter.verify((err, success) => {
-    if (err) {
-      console.error("❌ SMTP Verification Error:", err);
-    } else {
-      console.log("✅ SMTP ready:", success);
-    }
+    if (err) console.error("❌ SMTP Error:", err);
+    else console.log("✅ SMTP Ready");
   });
 
-  const mailOptions = {
+  // Envoi de l'email
+  const info = await transporter.sendMail({
     from: EMAIL_USER,
     to: recipient,
     subject: "🔎 Votre QCM de vérification de code",
     text: qcmMarkdown,
-  };
-
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Email envoyé à", recipient, "| response:", info.response);
-  } catch (error) {
-    console.error("❌ Erreur d'envoi de l'email :", error);
-  }
+  });
+  console.log("✅ Email envoyé à", recipient, "| response:", info.response);
 }
 
 async function generateAndSendQCM() {
   try {
-    // Lire tout le code JavaScript du dossier src
+    // Lecture des fichiers JS de src/ en excluant les utilitaires
     const codeDir = __dirname;
     let fullCode = "";
 
     const files = fs.readdirSync(codeDir);
     for (const file of files) {
-      if (file.endsWith(".js") && file !== "index.js") {
+      if (
+        file.endsWith(".js") &&
+        !["index.js", "generatePDF.js", "generateHoles.js"].includes(file)
+      ) {
         fullCode += fs.readFileSync(path.join(codeDir, file), "utf-8") + "\n\n";
       }
     }
-    if (!fullCode.trim()) throw new Error("❌ Aucun fichier JS à analyser dans src/");
+    if (!fullCode.trim()) {
+      throw new Error("❌ Aucun code étudiant trouvé dans src/");
+    }
 
-    // Générer le QCM
-    console.log("⏳ Génération du QCM...");
+    // Génération du QCM via Hugging Face
+    console.log("⏳ Génération du QCM…");
     const qcmMd = await generateQCMwithHF(fullCode);
-    console.log("✅ QCM généré :\n", qcmMd.split("\n").slice(0,5).join("\n") + "\n…");
+    console.log("✅ QCM généré");
 
-    // Envoyer le QCM par email
+    // Envoi du QCM par email
     await sendEmail(emailRecipient, qcmMd);
   } catch (err) {
     console.error("❌ Erreur :", err);
@@ -73,5 +74,4 @@ async function generateAndSendQCM() {
   }
 }
 
-// Lancer le process
 generateAndSendQCM();
