@@ -20,9 +20,10 @@ jobs:
         run: npm install
 
       - name: Générer et envoyer QCM
-        run: node index.js
+        run: node src/index.js
         env:
           HF_API_KEY: ${{ secrets.HF_API_KEY }}
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
+
