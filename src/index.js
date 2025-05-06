@@ -11,40 +11,59 @@ if (!EMAIL_USER || !EMAIL_PASS) throw new Error("❌ Définis EMAIL_USER et EMAI
 const emailRecipient = process.env.EMAIL_TO;
 if (!emailRecipient) throw new Error("❌ Définis EMAIL_TO dans .env");
 
+/**
+ * Envoie un email avec debug activé pour Nodemailer
+ */
 async function sendEmail(recipient, qcmMarkdown) {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+    logger: true,   // active les logs
+    debug: true     // affiche la conversation SMTP
   });
 
-  await transporter.sendMail({
+  // Vérifier la connexion SMTP avant l'envoi
+  transporter.verify((err, success) => {
+    if (err) {
+      console.error("❌ SMTP Verification Error:", err);
+    } else {
+      console.log("✅ SMTP ready:", success);
+    }
+  });
+
+  const mailOptions = {
     from: EMAIL_USER,
     to: recipient,
     subject: "🔎 Votre QCM de vérification de code",
     text: qcmMarkdown,
-  });
-  console.log("✅ Email envoyé à", recipient);
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log("✅ Email envoyé à", recipient, "| response:", info.response);
+  } catch (error) {
+    console.error("❌ Erreur d'envoi de l'email :", error);
+  }
 }
 
 async function generateAndSendQCM() {
   try {
-    // Lire tout le code JavaScript du dépôt (dossier src)
+    // Lire tout le code JavaScript du dossier src
     const codeDir = __dirname;
     let fullCode = "";
 
-    // Parcours tous les fichiers JS dans src/
     const files = fs.readdirSync(codeDir);
     for (const file of files) {
-      if (file.endsWith(".js")) {
-        const code = fs.readFileSync(path.join(codeDir, file), "utf-8");
-        fullCode += code + "\n\n";
+      if (file.endsWith(".js") && file !== "index.js") {
+        fullCode += fs.readFileSync(path.join(codeDir, file), "utf-8") + "\n\n";
       }
     }
+    if (!fullCode.trim()) throw new Error("❌ Aucun fichier JS à analyser dans src/");
 
-    // Générer le QCM à partir du code complet
+    // Générer le QCM
     console.log("⏳ Génération du QCM...");
     const qcmMd = await generateQCMwithHF(fullCode);
-    console.log("✅ QCM généré");
+    console.log("✅ QCM généré :\n", qcmMd.split("\n").slice(0,5).join("\n") + "\n…");
 
     // Envoyer le QCM par email
     await sendEmail(emailRecipient, qcmMd);
@@ -53,3 +72,6 @@ async function generateAndSendQCM() {
     process.exit(1);
   }
 }
+
+// Lancer le process
+generateAndSendQCM();
