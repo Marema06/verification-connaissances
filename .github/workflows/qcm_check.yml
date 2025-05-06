@@ -1,15 +1,12 @@
-name: Génération QCM & PDF
+name: Génération QCM et Envoi Email
 
 on:
   push:
-    branches: [main]
-
-permissions:
-  contents: read
-  issues: write  # Permission nécessaire pour créer des issues
+    branches:
+      - main
 
 jobs:
-  build:
+  generate_qcm:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,69 +16,14 @@ jobs:
       - name: 🔧 Configuration de Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "16"
-          cache: 'npm'
+          node-version: '16'
 
-      - name: 📦 Installation des dépendances
+      - name: 📦 Installer les dépendances
         run: npm install
 
-      - name: 🤖 Génération du QCM et PDF
+      - name: 🤖 Exécuter la génération du QCM et envoyer l'email
         run: node src/index.js
         env:
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           HF_API_KEY: ${{ secrets.HF_API_KEY }}
-
-      - name: 🐛 Vérification des fichiers générés
-        run: |
-          ls -lah
-          [ -f exo_etudiant.pdf ] || echo "Le fichier PDF n'a pas été généré"
-
-      - name: 📁 Préparation de l'artefact
-        run: |
-          mkdir -p upload
-          if [ -f exo_etudiant.pdf ]; then
-            cp exo_etudiant.pdf upload/
-            echo "PDF prêt pour upload"
-          else
-            echo "Erreur: Fichier PDF manquant"
-            exit 1
-          fi
-
-      - name: 📤 Upload du PDF
-        uses: actions/upload-artifact@v4
-        with:
-          name: qcm-pdf
-          path: upload/exo_etudiant.pdf
-          retention-days: 7
-
-      - name: 📝 Création du rapport pour le professeur
-        if: success()
-        uses: actions/github-script@v6
-        with:
-          script: |
-            try {
-              const pdfPath = 'exo_etudiant.pdf';
-              const fs = require('fs');
-              const pdfExists = fs.existsSync(pdfPath);
-              const pdfSize = pdfExists ?
-                (fs.statSync(pdfPath).size / 1024).toFixed(2) + ' Ko' :
-                'Non disponible';
-
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: `[Rapport QCM] ${new Date().toLocaleDateString('fr-FR')}`,
-                body: `### Rapport de génération de QCM\n\n` +
-                      `**Statut**: ✅ Succès\n` +
-                      `**Date**: ${new Date().toLocaleString('fr-FR')}\n` +
-                      `**Taille PDF**: ${pdfSize}\n` +
-                      `**Lien du workflow**: [Voir l'exécution](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})\n\n` +
-                      `**Actions requises**:\n` +
-                      `- Vérifier le PDF dans les artefacts du workflow\n` +
-                      `- Valider le contenu pédagogique`,
-                labels: ['rapport', 'qcm', 'professeur']
-              });
-              console.log('Issue créée avec succès');
-            } catch (error) {
-              console.error('Erreur lors de la création de l\'issue:', error);
-              // Ne pas faire échouer le workflow pour cette étape
-            }
