@@ -27,26 +27,29 @@ async function sendEmail(recipient, qcmMarkdown) {
 }
 
 async function generateAndSendQCM() {
-  // 1) Récupérer tout le code JS du dépôt (dans src/)
-  const codeDir = path.resolve(__dirname, "src");
-  let fullCode = "";
-  for (const f of fs.readdirSync(codeDir)) {
-    if (f.endsWith(".js")) {
-      fullCode += fs.readFileSync(path.join(codeDir, f), "utf-8") + "\n\n";
+  try {
+    // Lire tout le code JavaScript du dépôt (dossier src)
+    const codeDir = __dirname;
+    let fullCode = "";
+
+    // Parcours tous les fichiers JS dans src/
+    const files = fs.readdirSync(codeDir);
+    for (const file of files) {
+      if (file.endsWith(".js")) {
+        const code = fs.readFileSync(path.join(codeDir, file), "utf-8");
+        fullCode += code + "\n\n";
+      }
     }
+
+    // Générer le QCM à partir du code complet
+    console.log("⏳ Génération du QCM...");
+    const qcmMd = await generateQCMwithHF(fullCode);
+    console.log("✅ QCM généré");
+
+    // Envoyer le QCM par email
+    await sendEmail(emailRecipient, qcmMd);
+  } catch (err) {
+    console.error("❌ Erreur :", err);
+    process.exit(1);
   }
-  if (!fullCode.trim()) throw new Error("❌ Pas de code JS trouvé dans src/");
-
-  // 2) Générer le QCM
-  console.log("⏳ Génération du QCM...");
-  const qcmMd = await generateQCMwithHF(fullCode);
-  console.log("✅ QCM généré");
-
-  // 3) Envoyer le QCM par email
-  await sendEmail(emailRecipient, qcmMd);
 }
-
-generateAndSendQCM().catch(err => {
-  console.error("❌ Erreur :", err.message || err);
-  process.exit(1);
-});
