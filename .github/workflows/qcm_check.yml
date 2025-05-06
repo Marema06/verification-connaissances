@@ -3,8 +3,8 @@ name: Vérification et envoi QCM
 on:
   push:
     branches: [main]
-    paths:
-      - 'src/**'
+    #paths:
+      #- 'src/**'
 
 jobs:
   generate-and-mail:
