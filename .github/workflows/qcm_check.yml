@@ -3,11 +3,9 @@ name: Vérification et envoi QCM
 on:
   push:
     branches: [main]
-    #paths:
-      #- 'src/**'
 
 jobs:
-  generate-and-mail:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,13 +18,26 @@ jobs:
           node-version: '18'
 
       - name: 📦 Installer les dépendances
-        run: npm install
+        run: |
+          npm install
+          cd server
+          npm install
 
       - name: 🤖 Générer et envoyer le QCM
-        # ⚠️ On appelle bien src/index.js et non index.js
-        run: node src/index.js
+        run: |
+          node server/server.js
         env:
           HF_API_KEY: ${{ secrets.HF_API_KEY }}
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
+
+      - name: 🚀 Déployer l'application Angular
+        run: |
+          cd client
+          npm install
+          ng build --prod
+
+      - name: 📦 Déployer sur serveur (exemple: serveur distant ou hébergement)
+        run: |
+          scp -r client/dist/ /path/to/your/deploy

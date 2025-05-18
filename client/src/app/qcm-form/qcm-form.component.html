@@ -1,0 +1,33 @@
+<div class="qcm-container">
+  <header class="header">
+    <h1>QCM Angular</h1>
+    <p>Bienvenue à votre évaluation</p>
+  </header>
+
+  @if (!formSubmitted) {
+    <form (ngSubmit)="onSubmit()" class="qcm-form">
+      @for (question of questions; track question.id) {
+        <div class="question">
+          <h3>{{ question.id }}. {{ question.text }}</h3>
+          @for (option of question.options; track option.id) {
+            <div class="option">
+              <input
+                type="radio"
+                [name]="'q' + question.id"
+                [id]="'q' + question.id + option.id"
+                [value]="option.id"
+                [(ngModel)]="answers['q' + question.id]">
+              <label [for]="'q' + question.id + option.id">{{ option.text }}</label>
+            </div>
+          }
+        </div>
+      }
+      <button type="submit" class="submit-btn">Soumettre</button>
+    </form>
+  } @else {
+    <div class="results">
+      <h2>Merci d'avoir participé !</h2>
+      <p>Vos réponses ont été enregistrées.</p>
+    </div>
+  }
+</div>
