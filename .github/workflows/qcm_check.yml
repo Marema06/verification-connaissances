@@ -1,29 +1,56 @@
-name: Génération automatique de QCM
+name: Test API QCM with Flask + ngrok
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
-  generate-qcm:
+  test-qcm:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout du code
+      - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Fusionner tous les fichiers Python
-        run: |
-          echo "Fusion de tous les fichiers Python du repo..."
-          find . -name "*.py" -exec cat {} \; > merged_code.py
-          echo "Fichier fusionné créé."
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'  # adapte selon ta version
 
-      - name: Envoyer le code au backend
-        env:
-          SECRET_TOKEN: ${{ secrets.QCM_TOKEN }}
+      - name: Install dependencies
         run: |
-          CODE=$(cat merged_code.py | base64 | tr -d '\n')
-          curl -X POST https://<ton-ngrok-ou-domaine>/generate_qcm \
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Start Flask app
+        run: |
+          nohup python app.py &    # adapte le nom et la commande selon ton app
+        # On lance Flask en arrière-plan
+
+      - name: Download ngrok
+        run: |
+          curl -sLo ngrok.zip https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-v3-stable-linux-amd64.zip
+          unzip -o ngrok.zip
+          chmod +x ngrok
+
+      - name: Start ngrok tunnel
+        id: ngrok
+        run: |
+          ./ngrok http 5000 --log=stdout > ngrok.log &
+          sleep 5
+          # Récupérer l'URL publique via l'API locale de ngrok
+          NGROK_URL=$(curl --silent http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          echo "ngrok_url=$NGROK_URL" >> $GITHUB_OUTPUT
+
+      - name: Call Flask API via ngrok
+        run: |
+          echo "Using ngrok url: ${{ steps.ngrok.outputs.ngrok_url }}"
+          curl -X POST "${{ steps.ngrok.outputs.ngrok_url }}/generate-qcm" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $SECRET_TOKEN" \
-            -d "{\"code\": \"$(echo $CODE | base64 --decode)\"}"
+            -d '{"code":"def ma_fonction(): pass"}'
+
+      - name: Kill Flask and ngrok
+        run: |
+          pkill -f python || true
+          pkill -f ngrok || true
