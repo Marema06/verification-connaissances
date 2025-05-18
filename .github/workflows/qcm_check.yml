@@ -1,43 +1,29 @@
-name: Vérification et envoi QCM
+name: Génération automatique de QCM
 
 on:
   push:
     branches: [main]
 
 jobs:
-  build:
+  generate-qcm:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout du code
+      - name: Checkout du code
         uses: actions/checkout@v3
 
-      - name: 🔧 Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: 📦 Installer les dépendances
+      - name: Fusionner tous les fichiers Python
         run: |
-          npm install
-          cd server
-          npm install
+          echo "Fusion de tous les fichiers Python du repo..."
+          find . -name "*.py" -exec cat {} \; > merged_code.py
+          echo "Fichier fusionné créé."
 
-      - name: 🤖 Générer et envoyer le QCM
-        run: |
-          node server/server.js
+      - name: Envoyer le code au backend
         env:
-          HF_API_KEY: ${{ secrets.HF_API_KEY }}
-          EMAIL_USER: ${{ secrets.EMAIL_USER }}
-          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
-
-      - name: 🚀 Déployer l'application Angular
+          SECRET_TOKEN: ${{ secrets.QCM_TOKEN }}
         run: |
-          cd client
-          npm install
-          ng build --prod
-
-      - name: 📦 Déployer sur serveur (exemple: serveur distant ou hébergement)
-        run: |
-          scp -r client/dist/ /path/to/your/deploy
+          CODE=$(cat merged_code.py | base64 | tr -d '\n')
+          curl -X POST https://<ton-ngrok-ou-domaine>/generate_qcm \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $SECRET_TOKEN" \
+            -d "{\"code\": \"$(echo $CODE | base64 --decode)\"}"

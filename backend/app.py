@@ -21,10 +21,11 @@ os.makedirs(STATIC_PDF_DIR, exist_ok=True)
 @app.route("/generate_qcm", methods=["POST"])
 def generate_qcm():
     try:
-        data = request.json or {}
-        code_block = data.get("code", "")
-        if not code_block.strip():
-            return jsonify({"error": "Le champ 'code' est vide."}), 400
+        auth_token = request.headers.get("Authorization", "")
+        expected_token = os.getenv("API_SECRET_TOKEN")
+
+        if auth_token != f"Bearer {expected_token}":
+            return jsonify({"error": "Unauthorized"}), 401
 
         prompt = f"Propose un QCM en 3 questions pour vérifier la compréhension de ce code:\n{code_block}"
         qcm = ask_ollama(prompt)
