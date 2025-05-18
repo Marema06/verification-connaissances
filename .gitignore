@@ -1,5 +1,5 @@
 # Ignorer le fichier .env
-server/.env
+.env
 
 # Ignorer les modules node
 /node_modules/

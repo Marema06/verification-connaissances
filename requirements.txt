@@ -1,5 +1,5 @@
 Flask==2.3.2
-requests
-pdfkit
-jinja2
-WeasyPrint
+python-dotenv==1.0.0
+WeasyPrint==59.4
+requests==2.31.0
+Jinja2==3.1.2
