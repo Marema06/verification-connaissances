@@ -10,21 +10,20 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v3
 
-      # ✅ Setup Python en forçant la bonne version
       - name: 🐍 Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"  # Guillemets pour éviter les interprétations numériques
-          check-latest: true  # Ignore le cache si corrompu
-
-      - name: 🐍 Check Python version
-        run: python --version
+          python-version: "3.10"
+          check-latest: true
 
       - name: 📦 Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir -r requirements.txt
           pip install pipdeptree
+
+      - name: 🔍 Debug Flask dependencies
+        run: pipdeptree | grep Flask
 
       - name: 🔐 Create .env file
         run: |
@@ -35,40 +34,43 @@ jobs:
       - name: 🚀 Start Flask app
         run: |
           nohup python backend/app.py > flask.log 2>&1 &
-          sleep 6
+          sleep 5
 
-      - name: 🌍 Install ngrok
+      - name: 🌍 Install ngrok (v3+)
         run: |
-          wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip
-          unzip ngrok-stable-linux-amd64.zip
-          sudo mv ngrok /usr/local/bin
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt update && sudo apt install ngrok
 
-      - name: 🔑 Auth ngrok
+      - name: 🔑 Auth ngrok (v3+ syntax)
         run: |
           ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
 
-      - name: 🌐 Start ngrok and expose port 5000
+      - name: 🌐 Start ngrok tunnel
         run: |
           nohup ngrok http 5000 > ngrok.log 2>&1 &
-          sleep 6
+          sleep 5  # Wait for tunnel to initialize
 
-      - name: 📡 Get public ngrok URL
+      - name: 📡 Get ngrok public URL
         id: ngrok
         run: |
           NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
-          echo "NGROK_URL=$NGROK_URL"
+          echo "Public URL: $NGROK_URL"
           echo "NGROK_URL=$NGROK_URL" >> $GITHUB_ENV
 
-      - name: 🧪 Test the endpoint
+      - name: 🧪 Test API endpoint
         run: |
           curl -X POST "$NGROK_URL/generate_qcm" \
             -H "Authorization: Bearer ${{ secrets.API_SECRET_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{"code_block": "print(\"Hello, world!\")"}'
 
-      - name: 📄 Display Flask and ngrok logs
+      - name: 📄 Display logs
+        if: always()
         run: |
-          echo "---- Flask Logs ----"
-          cat flask.log || echo "flask.log not found"
-          echo "---- ngrok Logs ----"
-          cat ngrok.log || echo "ngrok.log not found"
+          echo "----- Flask Logs -----"
+          cat flask.log || echo "No Flask logs found"
+          echo "----- Ngrok Logs -----"
+          cat ngrok.log || echo "No Ngrok logs found"
+          echo "----- Active Tunnels -----"
+          curl -s http://localhost:4040/api/tunnels | jq
