@@ -27,6 +27,10 @@ def generate_qcm():
         if auth_token != f"Bearer {expected_token}":
             return jsonify({"error": "Unauthorized"}), 401
 
+        # 🔧 Récupérer le code envoyé dans la requête
+        data = request.get_json()
+        code_block = data.get("code_block", "")
+
         prompt = f"Propose un QCM en 3 questions pour vérifier la compréhension de ce code:\n{code_block}"
         qcm = ask_ollama(prompt)
         if qcm.startswith("Erreur Ollama"):

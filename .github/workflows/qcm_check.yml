@@ -1,56 +1,79 @@
-name: Test API QCM with Flask + ngrok
+name: Test QCM API
 
 on:
   push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
-  test-qcm:
+  test-qcm-api:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: 📥 Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Python
+      - name: 🐍 Setup Python 3.10
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'  # adapte selon ta version
+          python-version: 3.10
 
-      - name: Install dependencies
+      - name: 📦 Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Start Flask app
+      - name: 🔐 Create .env file
         run: |
-          nohup python app.py &    # adapte le nom et la commande selon ton app
-        # On lance Flask en arrière-plan
+          echo "API_SECRET_TOKEN=${{ secrets.API_SECRET_TOKEN }}" > .env
+          echo "STUDENT_EMAIL=${{ secrets.STUDENT_EMAIL }}" >> .env
+          echo "PROF_EMAIL=${{ secrets.PROF_EMAIL }}" >> .env
+          echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> .env
+          echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> .env
+          echo "SMTP_USERNAME=${{ secrets.SMTP_USERNAME }}" >> .env
+          echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> .env
+          echo "EMAIL_FROM=${{ secrets.EMAIL_FROM }}" >> .env
 
-      - name: Download ngrok
+      - name: 🚀 Start Flask app
         run: |
-          curl -sLo ngrok.zip https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-v3-stable-linux-amd64.zip
-          unzip -o ngrok.zip
-          chmod +x ngrok
+          nohup flask --app backend.app run --host=0.0.0.0 --port=5000 > flask.log 2>&1 &
+          sleep 6
 
-      - name: Start ngrok tunnel
+      - name: 🌐 Install ngrok
+        run: |
+          wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip
+          unzip ngrok-stable-linux-amd64.zip
+          sudo mv ngrok /usr/local/bin
+
+      - name: 🔑 Authenticate ngrok
+        run: |
+          ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+
+      - name: 🌍 Start ngrok to expose port 5000
+        run: |
+          nohup ngrok http 5000 > ngrok.log 2>&1 &
+          sleep 6
+
+      - name: 📡 Get public ngrok URL
         id: ngrok
         run: |
-          ./ngrok http 5000 --log=stdout > ngrok.log &
-          sleep 5
-          # Récupérer l'URL publique via l'API locale de ngrok
-          NGROK_URL=$(curl --silent http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
-          echo "ngrok_url=$NGROK_URL" >> $GITHUB_OUTPUT
+          NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          if [ -z "$NGROK_URL" ]; then
+            echo "Ngrok URL not found, exiting."
+            exit 1
+          fi
+          echo "NGROK_URL=$NGROK_URL" >> $GITHUB_ENV
 
-      - name: Call Flask API via ngrok
+      - name: 🧪 Test generate_qcm endpoint
         run: |
-          echo "Using ngrok url: ${{ steps.ngrok.outputs.ngrok_url }}"
-          curl -X POST "${{ steps.ngrok.outputs.ngrok_url }}/generate-qcm" \
+          curl -X POST "$NGROK_URL/generate_qcm" \
+            -H "Authorization: Bearer ${{ secrets.API_SECRET_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"code":"def ma_fonction(): pass"}'
+            -d '{"code_block": "print(\"Hello, world!\")"}'
 
-      - name: Kill Flask and ngrok
+      - name: 📝 Display Flask and ngrok logs (for debug)
+        if: failure()
         run: |
-          pkill -f python || true
-          pkill -f ngrok || true
+          echo "---- Flask Logs ----"
+          cat flask.log
+          echo "---- Ngrok Logs ----"
+          cat ngrok.log
