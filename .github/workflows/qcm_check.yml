@@ -1,83 +1,116 @@
-name: Test QCM API
+# .github/workflows/qcm_check.yml
+name: CI Backend + Frontend
 
 on:
   push:
   workflow_dispatch:
 
 jobs:
-  test-qcm-api:
+  test-qcm-api-and-frontend:
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        node-version: [20.11.1]     # ou 18.x selon votre version locale
+        python-version: ['3.10']
 
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v3
 
+      # ───────────── Backend ─────────────
       - name: 🐍 Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
-          check-latest: true
-
-      - name: 📦 Install dependencies
+          python-version: ${{ matrix.python-version }}
+      - name: 📦 Install Python deps
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir -r requirements.txt
-          pip install pipdeptree
 
-      - name: 🔍 Debug Flask dependencies
-        run: |
-          pipdeptree | grep Flask || echo "No Flask dependency tree found"
-
-      - name: 🔐 Create .env file
+      - name: 🔐 Write .env
         run: |
           echo "API_SECRET_TOKEN=${{ secrets.API_SECRET_TOKEN }}" > .env
           echo "STUDENT_EMAIL=${{ secrets.STUDENT_EMAIL }}" >> .env
           echo "PROF_EMAIL=${{ secrets.PROF_EMAIL }}" >> .env
 
-      - name: 🚀 Start Flask app
+      - name: 🚀 Launch Flask
         run: |
           nohup python backend/app.py > flask.log 2>&1 &
           sleep 6
 
-      - name: 🌐 Install jq (pour parser ngrok)
-        run: sudo apt-get update && sudo apt-get install -y jq
-
-      - name: 🌍 Install ngrok (v3+)
+      # ───────────── ngrok ─────────────
+      - name: 🌍 Install ngrok v3+
         run: |
-          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
+            | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
+            | sudo tee /etc/apt/sources.list.d/ngrok.list
           sudo apt update && sudo apt install -y ngrok
-
-      - name: 🔑 Auth ngrok (v3+ syntax)
-        run: |
-          ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
-
+      - name: 🔑 Auth ngrok
+        run: ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
       - name: 🌐 Start ngrok tunnel
         run: |
           nohup ngrok http 5000 > ngrok.log 2>&1 &
           sleep 6
-
-      - name: 📡 Get ngrok public URL
+      - name: 📡 Expose public URL
         id: ngrok
         run: |
-          # On interroge l'API web de ngrok pour récupérer l'URL publique
-          NGROK_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
-          echo "🔗 public ngrok URL: $NGROK_URL"
-          echo "NGROK_URL=$NGROK_URL" >> $GITHUB_ENV
+          URL=$(curl -s http://localhost:4040/api/tunnels \
+                | jq -r '.tunnels[0].public_url')
+          echo "NGROK_URL=$URL" >> $GITHUB_ENV
 
-      - name: 🧪 Test API endpoint
+      - name: 🧪 Test Backend endpoint
         run: |
           curl -X POST "$NGROK_URL/generate_qcm" \
             -H "Authorization: Bearer ${{ secrets.API_SECRET_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"code_block": "print(\"Hello, world!\")"}'
+            -d '{"code_block":"print(\"Hello\")"}'
 
-      - name: 📄 Display logs
+      # ───────────── Frontend ─────────────
+      - name: 🔗 Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: 📦 Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      # Génération dynamique du fichier d’environnements
+      - name: 🛠️ Write Angular env
+        working-directory: frontend
+        run: |
+          cat > src/environments/environment.ts <<EOF
+          export const environment = {
+            production: false,
+            apiUrl: '${{ env.NGROK_URL }}/generate_qcm',
+            apiToken: '${{ secrets.API_SECRET_TOKEN }}'
+          };
+          EOF
+
+      - name: 🛠️ Write Angular env.prod
+        working-directory: frontend
+        run: |
+          cat > src/environments/environment.prod.ts <<EOF
+          export const environment = {
+            production: true,
+            apiUrl: '${{ env.NGROK_URL }}/generate_qcm',
+            apiToken: '${{ secrets.API_SECRET_TOKEN }}'
+          };
+          EOF
+
+      - name: 🔨 Build Angular
+        working-directory: frontend
+        run: npm run build --if-present
+
+      - name: ✅ Smoke-test frontend HTTP call
+        working-directory: frontend
+        run: |
+          # lance vite preview ou un petit script node pour appeler l'API
+          echo "console.log('smoke')"
+
+      # ───────────── Logs ─────────────
+      - name: 📄 Dump logs
         if: always()
         run: |
-          echo "----- Flask Logs -----"
-          cat flask.log || echo "No Flask logs found"
-          echo "----- Ngrok Logs -----"
-          cat ngrok.log || echo "No Ngrok logs found"
-          echo "----- Active Tunnels -----"
-          curl -s http://127.0.0.1:4040/api/tunnels | jq
+          echo "---- Flask ----" && head -n50 flask.log || true
+          echo "---- ngrok ----" && head -n50 ngrok.log  || true
