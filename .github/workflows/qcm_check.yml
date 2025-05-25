@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: 📦 Install Python deps
+      - name: 📆 Install Python deps
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir -r requirements.txt
@@ -38,7 +38,7 @@ jobs:
           nohup python backend/app.py > flask.log 2>&1 &
           sleep 6
 
-      # ───────────── ngrok ─────────────
+      # ──────────── ngrok ────────────
       - name: 🌍 Install ngrok v3+
         run: |
           curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
@@ -63,19 +63,28 @@ jobs:
         run: |
           curl -X POST "$NGROK_URL/generate_qcm" \
             -H "Authorization: Bearer ${{ secrets.API_SECRET_TOKEN }}" \
+            -H "X-GitHub-Author: github-actions" \
             -H "Content-Type: application/json" \
             -d '{"code_block":"print(\"Hello\")"}'
+      - name: 🧾 Afficher QCM généré (JSON)
+        if: always()
+        run: |
+          echo "--- QCM History ---"
+          head -n 5 db/qcm_history.json || echo "Pas encore de QCM généré"
 
-      # ───────────── Frontend ─────────────
+      - name: 📂 Lister fichiers PDF générés
+        if: always()
+        run: ls -lh static/qcm_pdfs || true
+
+      # ──────────── Frontend ────────────
       - name: 🔗 Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
-      - name: 📦 Install frontend deps
+      - name: 📆 Install frontend deps
         working-directory: frontend
         run: npm ci
 
-      # Génération dynamique du fichier d’environnements
       - name: 🛠️ Write Angular env
         working-directory: frontend
         run: |
@@ -108,7 +117,7 @@ jobs:
           # lance vite preview ou un petit script node pour appeler l'API
           echo "console.log('smoke')"
 
-      # ───────────── Logs ─────────────
+      # ────────── Logs ──────────
       - name: 📄 Dump logs
         if: always()
         run: |
