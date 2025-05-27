@@ -1,16 +1,10 @@
 <div class="container">
-  <h2>Génération de QCM depuis un code</h2>
-
-  <textarea rows="8" [(ngModel)]="codeBlock" placeholder="Collez votre code ici"></textarea>
-
-  <br />
-  <button (click)="generateQcm()">Générer le QCM</button>
+  <h2>QCM généré automatiquement</h2>
 
   <div *ngIf="error" class="error">{{ error }}</div>
   <div *ngIf="successMessage" class="success">{{ successMessage }}</div>
 
-  <div *ngIf="qcmItems.length > 0" class="qcm-list">
-    <h3>Questions</h3>
+  <div *ngIf="qcmItems.length > 0">
     <form (ngSubmit)="submitAnswers()">
       <div *ngFor="let item of qcmItems; let i = index" class="question-block">
         <p>{{ i + 1 }}. {{ item.question }}</p>

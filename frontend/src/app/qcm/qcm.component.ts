@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { QcmApiService, QcmItem } from '../services/qcm-api.service';
@@ -11,37 +11,41 @@ import { HttpClientModule } from '@angular/common/http';
   templateUrl: './qcm.component.html',
   styleUrls: ['./qcm.component.css']
 })
-export class QcmComponent {
-  codeBlock: string = '';
+export class QcmComponent implements OnInit {
   qcmItems: QcmItem[] = [];
   userAnswers: number[] = [];
   error: string = '';
   successMessage: string = '';
   qcmId: string = '';
-  author: string = 'anonymous';  // Ou récupère d’une autre source (authentification)
+  author: string = 'anonymous';  // peut être dynamique selon auth
 
   constructor(private qcmApiService: QcmApiService) {}
 
-  generateQcm() {
-    this.error = '';
-    this.successMessage = '';
-    if (!this.codeBlock.trim()) {
-      this.error = "Le code ne peut pas être vide.";
-      return;
-    }
-    this.qcmApiService.generateQcm(this.codeBlock).subscribe({
+  ngOnInit() {
+    // Au chargement, on récupère le QCM déjà généré pour cet auteur
+    this.loadQcm();
+  }
+
+  loadQcm() {
+    this.qcmApiService.getQcm(this.author).subscribe({
       next: (res) => {
-        this.qcmItems = res.qcm;
-        this.qcmId = res.qcm_id;
-        this.userAnswers = new Array(this.qcmItems.length).fill(-1);
+        if (res && res.qcm && res.qcm.length > 0) {
+          this.qcmItems = res.qcm;
+          this.qcmId = res.qcm_id;
+          this.userAnswers = new Array(this.qcmItems.length).fill(-1);
+        } else {
+          this.error = "Aucun QCM généré pour cet utilisateur.";
+        }
       },
-      error: (err) => {
-        this.error = "Erreur lors de la génération du QCM.";
+      error: () => {
+        this.error = "Erreur lors de la récupération du QCM.";
       }
     });
   }
 
   submitAnswers() {
+    this.error = '';
+    this.successMessage = '';
     if (this.userAnswers.includes(-1)) {
       this.error = "Veuillez répondre à toutes les questions.";
       return;
@@ -49,7 +53,6 @@ export class QcmComponent {
     this.qcmApiService.submitAnswers(this.author, this.qcmId, this.userAnswers).subscribe({
       next: () => {
         this.successMessage = "Réponses enregistrées avec succès.";
-        this.error = '';
       },
       error: () => {
         this.error = "Erreur lors de l'enregistrement des réponses.";
