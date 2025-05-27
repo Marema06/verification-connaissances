@@ -45,6 +45,9 @@ jobs:
           nohup ngrok http 5000 --log=stdout > ngrok.log 2>&1 &
           sleep 5
 
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Expose public URL
         id: ngrok
         run: |
