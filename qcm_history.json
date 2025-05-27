@@ -1,0 +1,98 @@
+[
+  {
+    "id": "dd40c123a536444d9bac2f59552a10e3",
+    "author": "marieme",
+    "code": "def read_json_file(path):\n    if not os.path.isfile(path):\n        return []\n    with open(path, \"r\", encoding=\"utf-8\") as f:\n        try:\n            return json.load(f)\n        except Exception:\n            return []",
+    "qcm": [
+      {
+        "question": "Erreur : réponse invalide de l'API",
+        "options": [
+          "Réessaye"
+        ],
+        "correct_answer_index": 0
+      }
+    ],
+    "date": "2025-05-27T14:35:53.920038"
+  },
+  {
+    "id": "2bbe48f2c1c34956a0d40a47436c3375",
+    "author": "student1",
+    "code": "print(\"hello\")",
+    "qcm": [
+      {
+        "question": "print(2+2)?",
+        "options": [
+          "3",
+          "4",
+          "5"
+        ],
+        "correct_answer_index": 1
+      },
+      {
+        "question": "var='Hello',quelle var?",
+        "options": [
+          "var",
+          "other"
+        ],
+        "correct_answer_index": 0
+      },
+      {
+        "question": "afficher?",
+        "options": [
+          "print()",
+          "input()"
+        ],
+        "correct_answer_index": 0
+      }
+    ],
+    "date": "2025-05-27T15:30:26.204006"
+  },
+  {
+    "id": "28927f9356084d2292c38a71efdbef89",
+    "author": "student1",
+    "code": "def add(a, b):\n    return a + b\n\nresult = add(2, 3)\nprint(result)",
+    "qcm": [
+      {
+        "question": "print(2+2)?",
+        "options": [
+          "3",
+          "4",
+          "5"
+        ],
+        "correct_answer_index": 1
+      },
+      {
+        "question": "var='Hello',quelle var?",
+        "options": [
+          "var",
+          "other"
+        ],
+        "correct_answer_index": 0
+      },
+      {
+        "question": "afficher?",
+        "options": [
+          "print()",
+          "input()"
+        ],
+        "correct_answer_index": 0
+      }
+    ],
+    "date": "2025-05-27T15:49:46.186633"
+  },
+  {
+    "id": "7a6814fd67854ea3a13ab8f3ecf97d0a",
+    "author": "anonymous",
+    "code": "print(\"Hello World\")",
+    "qcm": [
+      {
+        "question": "Erreur lors de la génération du QCM.",
+        "options": [
+          "Ok"
+        ],
+        "correct_answer_index": 0
+      }
+    ],
+    "date": "2025-05-27T16:03:37.734099"
+  }
+]

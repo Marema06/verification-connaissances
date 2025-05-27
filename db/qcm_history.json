@@ -1,0 +1,9 @@
+[
+  {
+    "id": "de454583a7b64aa8ae8956600a2404ca",
+    "author": "my_qcm",
+    "code": "def add(a, b): return a + b",
+    "qcm": "Bien sûr ! Voici un QCM avec 3 questions pour vérifier la compréhension du code :\n\n**Question 1 : Qu'est-ce que fait le fonction `add` ?**\n\nA) Définit une variable et la renomme\nB) Ajoute deux nombres ensemble\nC) Exécute une instruction système\nD) Déclare une fonction avec un paramètre\n\nRéponse attendue : B) Ajoute deux nombres ensemble\n\n**Question 2 : Quel est le type de retour du fonction `add` ?**\n\nA) Une liste\nB) Un dictionnaire\nC) Le résultat de l'ajout des deux nombres (int ou float)\nD) Une erreur\n\nRéponse attendue : C) Le résultat de l'ajout des deux nombres (int ou float)\n\n**Question 3 : Qu'est-ce qui se passe si les deux arguments passés à la fonction `add` sont des valeurs non numériques ?**\n\nA) La fonction renvoie une erreur\nB) La fonction renvoie le premier argument\nC) La fonction renvoie le second argument\nD) La fonction traite les valeurs comme étant des nombres (ici, c'est le cas puisque la fonction utilise l'opérateur de plus)\n\nRéponse attendue : D) La fonction traite les valeurs comme étant des nombres",
+    "date": "2025-05-25T22:40:33.289973"
+  }
+]

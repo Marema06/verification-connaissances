@@ -1,0 +1,25 @@
+<div class="container">
+  <h2>Résultats des étudiants</h2>
+
+  <div *ngIf="loading">Chargement...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <table *ngIf="results.length" border="1">
+    <thead>
+    <tr>
+      <th>Auteur</th>
+      <th>Score</th>
+      <th>Date</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr *ngFor="let r of results">
+      <td>{{ r.author }}</td>
+      <td>{{ r.score }} / {{ r.total }}</td>
+      <td>{{ r.date | date:'short' }}</td>
+    </tr>
+    </tbody>
+  </table>
+
+  <div *ngIf="!loading && !results.length">Aucun résultat disponible.</div>
+</div>
