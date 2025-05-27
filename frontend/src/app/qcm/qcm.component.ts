@@ -33,15 +33,22 @@ export class QcmComponent implements OnInit {
           this.qcmItems = res.qcm;
           this.qcmId = res.qcm_id;
           this.userAnswers = new Array(this.qcmItems.length).fill(-1);
+          this.error = ''; // Important : clear l'erreur
         } else {
+          this.qcmItems = [];
+          this.qcmId = '';
           this.error = "Aucun QCM généré pour cet utilisateur.";
         }
       },
-      error: () => {
+      error: (err) => {
+        this.qcmItems = [];
+        this.qcmId = '';
         this.error = "Erreur lors de la récupération du QCM.";
+        console.error("Erreur QCM", err);
       }
     });
   }
+
 
   submitAnswers() {
     this.error = '';

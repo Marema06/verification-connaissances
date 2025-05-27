@@ -4,7 +4,7 @@
   <div *ngIf="error" class="error">{{ error }}</div>
   <div *ngIf="successMessage" class="success">{{ successMessage }}</div>
 
-  <div *ngIf="qcmItems.length > 0">
+  <ng-container *ngIf="qcmItems.length > 0 && !error">
     <form (ngSubmit)="submitAnswers()">
       <div *ngFor="let item of qcmItems; let i = index" class="question-block">
         <p>{{ i + 1 }}. {{ item.question }}</p>
@@ -17,5 +17,5 @@
       </div>
       <button type="submit">Soumettre les réponses</button>
     </form>
-  </div>
+  </ng-container>
 </div>
