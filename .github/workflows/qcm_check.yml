@@ -48,12 +48,13 @@ jobs:
       - name: Expose public URL
         id: ngrok
         run: |
-          export NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
-          echo "NGROK_URL=$NGROK_URL" >> $GITHUB_ENV
+          NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          echo "NGROK_URL=$NGROK_URL"
+          echo "url=$NGROK_URL" >> $GITHUB_OUTPUT
 
       - name: Test Backend endpoint
         run: |
-          curl -X POST "${{ env.NGROK_URL }}/generate_qcm" -H "Content-Type: application/json" -d '{"code_block":"print(\"Hello World\")"}'
+          curl -X POST "${{ steps.ngrok.outputs.url }}/generate_qcm" -H "Content-Type: application/json" -d '{"code_block":"print(\"Hello World\")"}'
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -70,7 +71,7 @@ jobs:
           cat > src/environments/environment.ts <<EOF
           export const environment = {
             production: false,
-            apiUrl: '${{ env.NGROK_URL }}',
+            apiUrl: '${{ steps.ngrok.outputs.url }}',
             apiToken: '${{ secrets.API_SECRET_TOKEN }}'
           };
           EOF
