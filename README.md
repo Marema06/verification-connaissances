@@ -101,7 +101,7 @@ Accessible via : `http://localhost:4200`
 
 ---
 
-## 📡 API – Endpoints
+##  API – Endpoints
 
 | Endpoint                  | Méthode | Description                                           |
 |---------------------------|---------|-------------------------------------------------------|
