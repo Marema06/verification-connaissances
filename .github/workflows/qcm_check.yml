@@ -16,29 +16,29 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      -- name: Set up Python
-                 - uses: actions/setup-python@v4
-                 - with:
-                 - python-version: '3.10'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-                 - name: Install backend dependencies
-                 - run: |
-                 - pip install -r backend/requirements.txt
+      - name: Install backend dependencies
+        run: |
+          pip install -r backend/requirements.txt
 
-                 - name: Run backend Flask server
-                 - run: |
-                 - nohup python3 backend/app.py > flask.log 2>&1 &
-                 - sleep 5
+      - name: Run backend Flask server
+        run: |
+          nohup python3 backend/app.py > flask.log 2>&1 &
+          sleep 5
 
-                 - name: Authentifier ngrok
-                 - run: ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+      - name: Authentifier ngrok
+        run: ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
 
-                 - name: Run ngrok tunnel (custom domain)
-                 - run: |
-                 - nohup ngrok http 5000 --domain=lately-noble-tuna.ngrok-free.app --log=stdout > ngrok.log 2>&1 &
-                 - sleep 5
+      - name: Run ngrok tunnel (custom domain)
+        run: |
+          nohup ngrok http 5000 --domain=lately-noble-tuna.ngrok-free.app --log=stdout > ngrok.log 2>&1 &
+          sleep 5
 
-                 - name: Test Backend endpoint
+      - name: Test Backend endpoint
         run: |
           curl -X POST "https://lately-noble-tuna.ngrok-free.app/generate_qcm" -H "Content-Type: application/json" -d '{"code_block":"print(\"Hello World\")"}'
 
