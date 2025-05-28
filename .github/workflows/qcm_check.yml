@@ -16,36 +16,29 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
+      -- name: Set up Python
+                 - uses: actions/setup-python@v4
+                 - with:
+                 - python-version: '3.10'
 
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+                 - name: Install backend dependencies
+                 - run: |
+                 - pip install -r backend/requirements.txt
 
-      - name: Start Flask API
-        run: |
-          nohup python backend/app.py > flask.log 2>&1 &
-          sleep 5
+                 - name: Run backend Flask server
+                 - run: |
+                 - nohup python3 backend/app.py > flask.log 2>&1 &
+                 - sleep 5
 
-      - name: Install ngrok
-        run: |
-          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-          sudo apt update && sudo apt install -y ngrok
+                 - name: Authentifier ngrok
+                 - run: ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
 
-      - name: Authenticate ngrok
-        run: ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+                 - name: Run ngrok tunnel (custom domain)
+                 - run: |
+                 - nohup ngrok http 5000 --domain=lately-noble-tuna.ngrok-free.app --log=stdout > ngrok.log 2>&1 &
+                 - sleep 5
 
-      - name: Run ngrok tunnel with fixed domain
-        run: |
-          nohup ngrok http --domain=lately-noble-tuna.ngrok-free.app 5000 --log=stdout > ngrok.log 2>&1 &
-          sleep 5
-
-      - name: Test Backend endpoint
+                 - name: Test Backend endpoint
         run: |
           curl -X POST "https://lately-noble-tuna.ngrok-free.app/generate_qcm" -H "Content-Type: application/json" -d '{"code_block":"print(\"Hello World\")"}'
 
