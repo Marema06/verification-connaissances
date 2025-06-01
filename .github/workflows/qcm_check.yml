@@ -8,11 +8,6 @@ jobs:
   test-backend-and-frontend:
     runs-on: ubuntu-22.04
 
-    strategy:
-      matrix:
-        python-version: ['3.10']
-        node-version: ['18.x']
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -20,11 +15,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.10
 
       - name: Install backend dependencies
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Run backend Flask server
         run: |
@@ -45,26 +39,31 @@ jobs:
           nohup ngrok http 5000 --domain=lately-noble-tuna.ngrok-free.app --log=stdout > ngrok.log 2>&1 &
           sleep 5
 
-      - name: Detect last modified Python file
-        id: detect_file
+      - name: Detect last modified code files (.py, .ts, .js)
+        id: detect_files
         run: |
-          LAST_FILE=$(git diff --name-only HEAD^ HEAD | grep '.py' | tail -n 1)
-          echo "Last modified Python file: $LAST_FILE"
-          echo "last_file=$LAST_FILE" >> $GITHUB_OUTPUT
+          FILES=$(git diff --name-only HEAD^ HEAD | grep -E '\.(py|ts|js)$' || true)
+          echo "Fichiers détectés: $FILES"
+          FILES_JSON=$(echo "$FILES" | jq -R -s -c 'split("\n")[:-1]')
+          echo "files=$FILES_JSON" >> $GITHUB_OUTPUT
 
-      - name: Send Python code to backend (/generate_qcm)
-        if: steps.detect_file.outputs.last_file != ''
+      - name: Send code files to backend /generate_qcm
+        if: steps.detect_files.outputs.files != '[]'
         run: |
-          FILE=${{ steps.detect_file.outputs.last_file }}
-          CODE=$(cat "$FILE" | jq -Rs .)
-          curl -X POST "https://lately-noble-tuna.ngrok-free.app/generate_qcm" \
-            -H "Content-Type: application/json" \
-            -d "{\"code_block\": $CODE, \"author\": \"github-action\"}"
+          echo "Envoi des fichiers à backend..."
+          FILES=${{ steps.detect_files.outputs.files }}
+          echo "$FILES" | jq -r '.[]' | while read file; do
+            echo "Traitement de $file"
+            CODE=$(cat "$file" | jq -Rs .)
+            curl -X POST "https://lately-noble-tuna.ngrok-free.app/generate_qcm" \
+              -H "Content-Type: application/json" \
+              -d "{\"code_block\": $CODE, \"author\": \"github-action\"}"
+          done
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 18.x
 
       - name: Install frontend deps
         working-directory: frontend

@@ -1,84 +1,88 @@
-from flask import Flask, request, jsonify
+import os
 import uuid
+import json
+import requests
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Pour autoriser les appels depuis Angular (frontend)
+CORS(app)
 
-# Stockage en mémoire (à remplacer par une vraie base plus tard)
-qcm_store = {}
+QCM_DIR = "qcms"
+OLLAMA_API_URL = "http://localhost:11434/api/generate"
+MODEL_NAME = "llama3"  # adapte au modèle Ollama que tu utilises
 
-@app.route('/generate_qcm', methods=['POST'])
+os.makedirs(QCM_DIR, exist_ok=True)
+
+def build_prompt(code: str) -> str:
+    return f"""
+Tu es un assistant pédagogique. Génère un QCM (questions à choix multiples) sur le code suivant :
+
+```{code}```
+
+Format de réponse JSON attendu :
+
+{{
+  "qcm": [
+    {{
+      "question": "Question ici",
+      "options": ["option A", "option B", "option C", "option D"],
+      "correct_answer_index": 0
+    }}
+  ]
+}}
+"""
+
+@app.route("/generate_qcm", methods=["POST"])
 def generate_qcm():
-    data = request.json
-    code_block = data.get('code_block', '')
-    author = data.get('author', 'anonymous')
+    data = request.get_json()
+    code = data.get("code_block")
+    author = data.get("author", "anonymous")
 
-    # Ici on simule la génération du QCM depuis le code (à remplacer par LLM réel)
-    qcm = [
-        {
-            "question": "Que fait cette ligne de code ?",
-            "options": ["Affiche Hello", "Calcule", "Rien", "Erreur"],
-            "correct_answer_index": 0
-        },
-        {
-            "question": "Quelle est la sortie de ce code ?",
-            "options": ["Hello World", "Erreur", "Rien", "42"],
-            "correct_answer_index": 0
-        }
-    ]
+    if not code:
+        return jsonify({"error": "code_block manquant"}), 400
+
+    prompt = build_prompt(code)
+    response = requests.post(
+        OLLAMA_API_URL,
+        json={"model": MODEL_NAME, "prompt": prompt, "stream": False}
+    )
+
+    if response.status_code != 200:
+        return jsonify({"error": "Erreur avec Ollama"}), 500
+
+    try:
+        full_output = response.json()["response"]
+        qcm_data = json.loads(full_output)
+    except Exception as e:
+        return jsonify({"error": f"Erreur de parsing JSON: {e}", "raw": response.text}), 500
 
     qcm_id = str(uuid.uuid4())
+    qcm_path = os.path.join(QCM_DIR, f"{qcm_id}.json")
 
-    # Stockage du QCM avec l’auteur
-    qcm_store[qcm_id] = {
-        "author": author,
-        "qcm": qcm
-    }
-
-    return jsonify({"qcm": qcm, "qcm_id": qcm_id})
-
-@app.route('/get_qcm/<author>', methods=['GET'])
-def get_qcm(author):
-    # Cherche le dernier QCM généré par cet author
-    for qcm_id, data in reversed(list(qcm_store.items())):
-        if data['author'] == author:
-            return jsonify({"qcm": data['qcm'], "qcm_id": qcm_id})
-    # Pas de QCM trouvé pour cet author
-    return jsonify({"qcm": [], "qcm_id": None})
-
-@app.route('/submit_answers', methods=['POST'])
-def submit_answers():
-    data = request.json
-    author = data.get('author')
-    qcm_id = data.get('qcm_id')
-    answers = data.get('answers')
-
-    if not author or not qcm_id or answers is None:
-        return jsonify({"error": "Données manquantes"}), 400
-
-    # Ici on pourrait stocker les réponses, pour l'instant on confirme juste la réception
-    # Par exemple, on peut vérifier les réponses correctes
-    if qcm_id not in qcm_store:
-        return jsonify({"error": "QCM introuvable"}), 404
-
-    qcm = qcm_store[qcm_id]['qcm']
-    score = 0
-    for i, answer in enumerate(answers):
-        if i < len(qcm) and answer == qcm[i]['correct_answer_index']:
-            score += 1
-
-    return jsonify({"message": "Réponses reçues", "score": score, "total": len(qcm)})
-@app.route('/results', methods=['GET'])
-def results():
-    results_list = []
-    for qcm_id, data in qcm_store.items():
-        results_list.append({
+    with open(qcm_path, "w") as f:
+        json.dump({
+            "author": author,
             "qcm_id": qcm_id,
-            "author": data["author"],
-            "qcm": data["qcm"]
-        })
-    return jsonify(results_list)
+            "qcm": qcm_data.get("qcm", [])
+        }, f, indent=2)
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    return jsonify({"qcm_id": qcm_id, "url": f"/qcms/{qcm_id}.json"})
+
+@app.route("/qcms/<qcm_id>.json")
+def get_qcm_by_id(qcm_id):
+    return send_from_directory(QCM_DIR, f"{qcm_id}.json")
+
+@app.route("/get_qcm/<author>")
+def get_qcm_by_author(author):
+    # Renvoie le dernier QCM créé par l'auteur
+    for filename in sorted(os.listdir(QCM_DIR), reverse=True):
+        path = os.path.join(QCM_DIR, filename)
+        with open(path, "r") as f:
+            data = json.load(f)
+            if data.get("author") == author:
+                return jsonify(data)
+    return jsonify({"error": "Aucun QCM trouvé"}), 404
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
