@@ -17,23 +17,30 @@ export class QcmComponent implements OnInit {
   error: string = '';
   successMessage: string = '';
   qcmId: string = '';
-  author: string = 'anonymous';  // peut être dynamique selon auth
+  author: string = 'anonymous';
 
   constructor(private qcmApiService: QcmApiService) {}
 
   ngOnInit() {
-    // Au chargement, on récupère le QCM déjà généré pour cet auteur
+    console.log("ngOnInit called");
     this.loadQcm();
   }
 
   loadQcm() {
+    console.log("loadQcm called");
     this.qcmApiService.getQcm(this.author).subscribe({
       next: (res) => {
+        console.log("QCM reçu :", res);
         if (res && res.qcm && res.qcm.length > 0) {
           this.qcmItems = res.qcm;
           this.qcmId = res.qcm_id;
-          this.userAnswers = new Array(this.qcmItems.length).fill(-1);
-          this.error = ''; // Important : clear l'erreur
+
+          // Initialisation de userAnswers uniquement si taille différente
+          if (this.userAnswers.length !== this.qcmItems.length) {
+            this.userAnswers = new Array(this.qcmItems.length).fill(-1);
+          }
+
+          this.error = '';
         } else {
           this.qcmItems = [];
           this.qcmId = '';
@@ -48,7 +55,6 @@ export class QcmComponent implements OnInit {
       }
     });
   }
-
 
   submitAnswers() {
     this.error = '';
@@ -65,5 +71,9 @@ export class QcmComponent implements OnInit {
         this.error = "Erreur lors de l'enregistrement des réponses.";
       }
     });
+  }
+
+  trackByIndex(index: number, item: QcmItem): number {
+    return index;
   }
 }
