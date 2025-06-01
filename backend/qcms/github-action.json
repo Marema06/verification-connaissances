@@ -1,0 +1,22 @@
+[
+  {
+    "question": "Que fait cette action GitHub ?",
+    "choices": [
+      "Elle compile du code",
+      "Elle génère un QCM",
+      "Elle déploie un site",
+      "Elle effectue des tests unitaires"
+    ],
+    "answer": "Elle génère un QCM"
+  },
+  {
+    "question": "Quel outil est utilisé pour exposer le backend ?",
+    "choices": [
+      "Postman",
+      "Docker",
+      "Ngrok",
+      "Flask"
+    ],
+    "answer": "Ngrok"
+  }
+]
