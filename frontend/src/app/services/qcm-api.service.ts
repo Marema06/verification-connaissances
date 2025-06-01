@@ -18,10 +18,10 @@ export class QcmApiService {
   constructor(private http: HttpClient) {}
 
   // Génère un QCM à partir du code (appel POST)
-  generateQcm(codeBlock: string): Observable<{ qcm: QcmItem[], qcm_id: string }> {
+  generateQcm(codeBlock: string, author: string = 'anonymous'): Observable<{ qcm: QcmItem[], qcm_id: string }> {
     return this.http.post<{ qcm: QcmItem[], qcm_id: string }>(
       `${this.apiUrl}/generate_qcm`,
-      { code_block: codeBlock }
+      { code_block: codeBlock, author }
     );
   }
 
