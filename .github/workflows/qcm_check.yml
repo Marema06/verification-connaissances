@@ -45,11 +45,21 @@ jobs:
           nohup ngrok http 5000 --domain=lately-noble-tuna.ngrok-free.app --log=stdout > ngrok.log 2>&1 &
           sleep 5
 
-      - name: Test Backend endpoint
+      - name: Detect last modified Python file
+        id: detect_file
         run: |
+          LAST_FILE=$(git diff --name-only HEAD^ HEAD | grep '.py' | tail -n 1)
+          echo "Last modified Python file: $LAST_FILE"
+          echo "last_file=$LAST_FILE" >> $GITHUB_OUTPUT
+
+      - name: Send Python code to backend (/generate_qcm)
+        if: steps.detect_file.outputs.last_file != ''
+        run: |
+          FILE=${{ steps.detect_file.outputs.last_file }}
+          CODE=$(cat "$FILE" | jq -Rs .)
           curl -X POST "https://lately-noble-tuna.ngrok-free.app/generate_qcm" \
             -H "Content-Type: application/json" \
-            -d '{"code_block":"print(\"Hello World\")"}'
+            -d "{\"code_block\": $CODE, \"author\": \"github-action\"}"
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
