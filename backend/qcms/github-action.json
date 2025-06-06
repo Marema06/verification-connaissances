@@ -1,22 +1,26 @@
-[
-  {
-    "question": "Que fait cette action GitHub ?",
-    "choices": [
-      "Elle compile du code",
-      "Elle génère un QCM",
-      "Elle déploie un site",
-      "Elle effectue des tests unitaires"
-    ],
-    "answer": "Elle génère un QCM"
-  },
-  {
-    "question": "Quel outil est utilisé pour exposer le backend ?",
-    "choices": [
-      "Postman",
-      "Docker",
-      "Ngrok",
-      "Flask"
-    ],
-    "answer": "Ngrok"
-  }
-]
+{
+  "author": "github-action",
+  "qcm_id": "github-action-test",
+  "qcm": [
+    {
+      "question": "Quel est le rôle de la fonction main() en Python ?",
+      "options": [
+        "Initialiser une variable",
+        "Définir le point d’entrée du programme",
+        "Créer un module externe",
+        "Rien du tout"
+      ],
+      "correct_answer_index": 1
+    },
+    {
+      "question": "Que signifie 'let' en TypeScript ?",
+      "options": [
+        "Créer une fonction",
+        "Créer une constante",
+        "Déclarer une variable avec portée de bloc",
+        "Déclarer une classe"
+      ],
+      "correct_answer_index": 2
+    }
+  ]
+}
