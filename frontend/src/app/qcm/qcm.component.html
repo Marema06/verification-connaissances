@@ -1,28 +1,40 @@
 <div *ngIf="qcms.length === 0">
-  <p>Aucun QCM disponible.</p>
+  <p>Aucun QCM disponible pour l'auteur {{ author }}.</p>
 </div>
 
-<div *ngFor="let qcm of qcms; index as idx">
-  <h2>QCM #{{ idx + 1 }} ({{ qcm.author }})</h2>
-  <form [formGroup]="forms[idx]" (ngSubmit)="submit(idx)">
-    <div *ngFor="let question of qcm.qcm; index as i">
-      <fieldset>
-        <legend>{{ i + 1 }}. {{ question.question }}</legend>
-        <div *ngFor="let opt of question.options; index as j">
-          <label>
-            <input type="radio"
-                   [formControlName]="'q' + i"
-                   [value]="j" />
-            {{ opt }}
-          </label>
-        </div>
-      </fieldset>
+<div *ngFor="let qcm of qcms; let i = index" class="qcm-block">
+  <h3>QCM ID: {{ qcm.qcm_id }}</h3>
+
+  <form [formGroup]="forms[i]" (ngSubmit)="submit(i)">
+    <div *ngFor="let item of qcm.qcm; let j = index" class="question-block">
+      <p><strong>Question {{ j + 1 }}:</strong> {{ item.question }}</p>
+
+      <div *ngFor="let option of item.options; let k = index">
+        <label>
+          <input
+            type="radio"
+            [formControlName]="'q' + j"
+            [value]="k"
+            name="q{{ i }}-{{ j }}"
+          />
+          {{ option }}
+        </label>
+      </div>
+
+      <div *ngIf="forms[i].controls['q' + j].invalid && forms[i].controls['q' + j].touched
+">
+        <small class="error">Veuillez répondre à cette question.</small>
+      </div>
     </div>
-    <button type="submit" [disabled]="forms[idx].invalid">Envoyer réponses</button>
+
+    <button type="submit" [disabled]="forms[i].invalid">Soumettre les réponses</button>
   </form>
-  <button (click)="downloadPdf(idx)">Télécharger QCM Professeur (PDF)</button>
-  <div *ngIf="pdfUrl">
+
+  <button (click)="downloadPdf(i)">Télécharger PDF du professeur</button>
+
+  <div *ngIf="pdfUrl && qcms[i].qcm_id === qcms[i].qcm_id">
     <a [href]="pdfUrl" target="_blank">Ouvrir le PDF</a>
   </div>
+
   <hr />
 </div>
