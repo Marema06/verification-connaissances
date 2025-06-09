@@ -1,46 +1,47 @@
-import { Component, OnInit } from '@angular/core';
-import {FormBuilder, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
-import { QcmApiService, QcmResponse } from '../services/qcm-api.service';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { QcmApiService, QcmResponse } from '../services/qcm-api.service';
+import { HttpClientModule } from '@angular/common/http';
 
 @Component({
   selector: 'app-qcm',
+  standalone: true,
+  imports: [CommonModule, HttpClientModule, ReactiveFormsModule],
   templateUrl: './qcm.component.html',
-  imports: [
-    ReactiveFormsModule,
-    CommonModule
-  ],
   styleUrls: ['./qcm.component.css']
 })
 export class QcmComponent implements OnInit {
-  qcmForm!: FormGroup;
-  qcmData!: QcmResponse;
+  qcms: QcmResponse[] = [];
+  forms: FormGroup[] = [];
   pdfUrl: string | null = null;
+  author = 'github-action';
 
-  constructor(
-    private fb: FormBuilder,
-    private qcmService: QcmApiService
-  ) {}
+  constructor(private qcmService: QcmApiService, private fb: FormBuilder) {}
 
   ngOnInit() {
-    this.qcmService.getQcmByAuthor('github-action').subscribe(res => {
-      this.qcmData = res;
-      const controls: any = {};
-      res.qcm.forEach((_, i) => controls[`q${i}`] = ['', Validators.required]);
-      this.qcmForm = this.fb.group(controls);
+    this.qcmService.getQcmsByAuthor(this.author).subscribe({
+      next: res => {
+        this.qcms = res.qcms;
+        this.qcms.forEach((qcm, idx) => {
+          const group: any = {};
+          qcm.qcm.forEach((_, i) => group['q' + i] = ['', Validators.required]);
+          this.forms[idx] = this.fb.group(group);
+        });
+      },
+      error: err => console.error('Erreur getQcms', err)
     });
   }
 
-  submitAnswers() {
-    if (this.qcmForm.invalid) return;
-    const answers = this.qcmData.qcm.map((_, i) => this.qcmForm.value[`q${i}`]);
-    this.qcmService.submitAnswers(this.qcmData.author, this.qcmData.qcm_id, answers)
-      .subscribe();
+  submit(idx: number) {
+    const form = this.forms[idx];
+    if (form.invalid) return;
+    const answers = this.qcms[idx].qcm.map((_, i) => form.value['q' + i]);
+    this.qcmService.submitAnswers(this.author, this.qcms[idx].qcm_id, answers).subscribe();
   }
 
-  downloadTeacherPdf() {
-    this.qcmService.generateTeacherPdf(this.qcmData.qcm_id)
-      .subscribe(res => this.pdfUrl = this.qcmService.apiUrl + res.pdf_url);
+  downloadPdf(idx: number) {
+    this.qcmService.generateTeacherPdf(this.qcms[idx].qcm_id)
+      .subscribe(res => this.pdfUrl = res.pdf_url);
   }
 }

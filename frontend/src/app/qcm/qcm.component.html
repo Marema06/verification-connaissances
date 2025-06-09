@@ -1,22 +1,28 @@
-<div *ngIf="qcmData">
-  <h2>QCM de {{ qcmData.author }}</h2>
-  <form [formGroup]="qcmForm" (ngSubmit)="submitAnswers()">
-    <div *ngFor="let q of qcmData.qcm; let i = index">
+<div *ngIf="qcms.length === 0">
+  <p>Aucun QCM disponible.</p>
+</div>
+
+<div *ngFor="let qcm of qcms; index as idx">
+  <h2>QCM #{{ idx + 1 }} ({{ qcm.author }})</h2>
+  <form [formGroup]="forms[idx]" (ngSubmit)="submit(idx)">
+    <div *ngFor="let question of qcm.qcm; index as i">
       <fieldset>
-        <legend>{{ i + 1 }}. {{ q.question }}</legend>
-        <div *ngFor="let opt of q.options; let j = index">
+        <legend>{{ i + 1 }}. {{ question.question }}</legend>
+        <div *ngFor="let opt of question.options; index as j">
           <label>
-            <input type="radio" [formControlName]="'q'+i" [value]="j" />
+            <input type="radio"
+                   [formControlName]="'q' + i"
+                   [value]="j" />
             {{ opt }}
           </label>
         </div>
       </fieldset>
     </div>
-    <button type="submit" [disabled]="qcmForm.invalid">Envoyer réponses</button>
+    <button type="submit" [disabled]="forms[idx].invalid">Envoyer réponses</button>
   </form>
-
-  <button (click)="downloadTeacherPdf()">Télécharger QCM Professeur (PDF)</button>
+  <button (click)="downloadPdf(idx)">Télécharger QCM Professeur (PDF)</button>
   <div *ngIf="pdfUrl">
-    <a [href]="pdfUrl" target="_blank">Ouvrir PDF Prof</a>
+    <a [href]="pdfUrl" target="_blank">Ouvrir le PDF</a>
   </div>
+  <hr />
 </div>
