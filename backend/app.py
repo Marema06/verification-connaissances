@@ -112,14 +112,32 @@ def generate_teacher_pdf():
 def serve_qcm_file(filename):
     return send_from_directory(QCM_DIR, filename)
 
-@app.route("/get_qcm/<author>")
+@app.route("/get_qcm/<author>", methods=["GET"])
 def get_qcm_by_author(author):
+    # Assure-toi que le dossier existe
+    os.makedirs(QCM_DIR, exist_ok=True)
+
+    qcms = []
+    # Parcours tous les JSON du dossier
     for fname in sorted(os.listdir(QCM_DIR), reverse=True):
-        with open(os.path.join(QCM_DIR, fname), "r", encoding="utf-8") as f:
-            data = json.load(f)
-            if data.get("author","").lower()==author.lower():
-                return jsonify(data)
-    return jsonify(error="Aucun QCM trouvé"),404
+        if not fname.endswith(".json"):
+            continue
+        path = os.path.join(QCM_DIR, fname)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            # Ignore les fichiers corrompus ou mal formés
+            print(f"⚠️ Ignoré {fname} : {e}")
+            continue
+
+        # Correspondance auteur (insensible à la casse)
+        if data.get("author", "").lower() == author.lower():
+            qcms.append(data)
+
+    # Toujours renvoyer un JSON, même s'il est vide
+    return jsonify({"qcms": qcms})
+
 
 if __name__=="__main__":
     app.run(host="0.0.0.0", port=5000)

@@ -1,12 +1,15 @@
 import { Component, OnInit } from '@angular/core';
 import {FormBuilder, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 import { QcmApiService, QcmResponse } from '../services/qcm-api.service';
+import { CommonModule } from '@angular/common';
+
 
 @Component({
   selector: 'app-qcm',
   templateUrl: './qcm.component.html',
   imports: [
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    CommonModule
   ],
   styleUrls: ['./qcm.component.css']
 })
