@@ -1,6 +1,7 @@
 import os
 import uuid
 import json
+import re
 import requests
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -53,9 +54,15 @@ def generate_qcm():
 
     try:
         full_output = response.json()["response"]
-        qcm_data = json.loads(full_output)
+        match = re.search(r'\{.*"qcm"\s*:\s*\[.*?\]\s*\}', full_output, re.DOTALL)
+        if not match:
+            raise ValueError("Format JSON introuvable dans la réponse.")
+        qcm_data = json.loads(match.group())
     except Exception as e:
-        return jsonify({"error": f"Erreur de parsing JSON: {e}", "raw": response.text}), 500
+        return jsonify({
+            "error": f"Erreur de parsing JSON: {e}",
+            "raw": response.text
+        }), 500
 
     qcm_id = str(uuid.uuid4())
     qcm_path = os.path.join(QCM_DIR, f"{qcm_id}.json")
@@ -75,7 +82,6 @@ def get_qcm_by_id(qcm_id):
 
 @app.route("/get_qcm/<author>")
 def get_qcm_by_author(author):
-    # Renvoie le dernier QCM créé par l'auteur
     for filename in sorted(os.listdir(QCM_DIR), reverse=True):
         path = os.path.join(QCM_DIR, filename)
         with open(path, "r") as f:

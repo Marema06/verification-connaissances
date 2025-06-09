@@ -9,6 +9,12 @@ export interface QcmItem {
   correct_answer_index: number;
 }
 
+export interface QcmResponse {
+  author: string;
+  qcm: QcmItem[];
+  qcm_id: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -17,8 +23,8 @@ export class QcmApiService {
 
   constructor(private http: HttpClient) {}
 
-  getQcm(author: string): Observable<{ qcm: QcmItem[], qcm_id: string }> {
-    return this.http.get<{ qcm: QcmItem[], qcm_id: string }>(`${this.apiUrl}/get_qcm/${author}`);
+  getQcm(author: string): Observable<QcmResponse> {
+    return this.http.get<QcmResponse>(`${this.apiUrl}/get_qcm/${author}`);
   }
 
   submitAnswers(author: string, qcm_id: string, answers: number[]): Observable<any> {
