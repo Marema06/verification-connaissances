@@ -53,16 +53,25 @@ jobs:
       - name: Send code files to backend (QCM + PDF prof)
         if: steps.detect_files.outputs.files != '[]'
         run: |
-          for FILE in ${{ steps.detect_files.outputs.files }}; do
-            CODE=$(cat "$FILE" | jq -Rs .)
-            RESP=$(curl -s -X POST "https://lately-noble-tuna.ngrok-free.app/generate_qcm" \
-              -H "Content-Type: application/json" \
-              -d "{\"code_block\": $CODE, \"author\": \"github-action\"}")
-            QCM_ID=$(echo "$RESP" | jq -r .qcm_id)
-            curl -s -X POST "https://lately-noble-tuna.ngrok-free.app/generate_teacher_pdf" \
-              -H "Content-Type: application/json" \
-              -d "{\"qcm_id\": \"$QCM_ID\", \"author\": \"github-action\"}"
-          done
+          FILES=${{ steps.detect_files.outputs.files }}
+          echo "Fichiers JSON: $FILES"
+          if [ "$FILES" != "[]" ]; then
+            echo "$FILES" | jq -r '.[]' | while read file; do
+              [ -z "$file" ] && continue
+              echo "Traitement de $file"
+              CODE=$(cat "$file" | jq -Rs .)
+              RESP=$(curl -s -X POST "https://lately-noble-tuna.ngrok-free.app/generate_qcm" \
+                -H "Content-Type: application/json" \
+                -d "{\"code_block\": $CODE, \"author\": \"github-action\"}")
+              QCM_ID=$(echo "$RESP" | jq -r .qcm_id)
+              curl -s -X POST "https://lately-noble-tuna.ngrok-free.app/generate_teacher_pdf" \
+                -H "Content-Type: application/json" \
+                -d "{\"qcm_id\": \"$QCM_ID\", \"author\": \"github-action\"}"
+            done
+          else
+            echo "Aucun fichier modifié, rien à traiter."
+          fi
+
 
       - name: Send push notification to student (optional)
         if: steps.detect_files.outputs.files != '[]'
