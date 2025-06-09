@@ -15,8 +15,8 @@ jobs:
       - name: Set up Python (3.10)
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'  # 🔥 Version clairement définie
-          cache: 'pip'  # 🚀 Optionnel : active le cache pour pip
+          python-version: '3.10'      # Version clairement définie
+          cache: 'pip'               # Active le cache pip
 
       - name: Install backend dependencies
         run: pip install -r requirements.txt
@@ -32,7 +32,7 @@ jobs:
           echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
           sudo apt update && sudo apt install ngrok
 
-      - name: Authentifier ngrok
+      - name: Authenticate ngrok
         run: ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
 
       - name: Run ngrok tunnel (custom domain)
@@ -60,6 +60,24 @@ jobs:
               -H "Content-Type: application/json" \
               -d "{\"code_block\": $CODE, \"author\": \"github-action\"}"
           done
+      - name: Send code files to backend (QCM + PDF prof)
+        if: steps.detect_files.outputs.files != '[]'
+        run: |
+          for FILE in ${{ steps.detect_files.outputs.files }}; do
+            CODE=$(cat "$FILE" | jq -Rs .)
+            RESP=$(curl -s -X POST "https://lately-noble-tuna.ngrok-free.app/generate_qcm" \
+              -H "Content-Type: application/json" \
+              -d "{\"code_block\": $CODE, \"author\": \"github-action\"}")
+            QCM_ID=$(echo "$RESP" | jq -r .qcm_id)
+            curl -s -X POST "https://lately-noble-tuna.ngrok-free.app/generate_teacher_pdf" \
+              -H "Content-Type: application/json" \
+              -d "{\"qcm_id\": \"$QCM_ID\", \"author\": \"github-action\"}"
+          done
+
+
+      - name: Send push notification to student (optional)
+        if: steps.detect_files.outputs.files != '[]'
+        run: echo "Un nouveau QCM a été généré pour {{ github.actor }}"
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -70,7 +88,7 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Write Angular env (dev)
+      - name: Write Angular environment (dev)
         working-directory: frontend
         run: |
           cat > src/environments/environment.ts <<EOF

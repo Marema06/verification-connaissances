@@ -1,72 +1,43 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { QcmApiService, QcmItem } from '../services/qcm-api.service';
-import { HttpClientModule } from '@angular/common/http';
-import { environment } from '../../environments/environment';
+import {FormBuilder, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
+import { QcmApiService, QcmResponse } from '../services/qcm-api.service';
 
 @Component({
   selector: 'app-qcm',
-  standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule],
   templateUrl: './qcm.component.html',
+  imports: [
+    ReactiveFormsModule
+  ],
   styleUrls: ['./qcm.component.css']
 })
 export class QcmComponent implements OnInit {
-  qcmItems: QcmItem[] = [];
-  userAnswers: number[] = [];
-  error: string = '';
-  successMessage: string = '';
-  qcmId: string = '';
-  author: string = 'github-action';  // ou 'anonymous', selon ton contexte
-  apiUrl = environment.apiUrl;
+  qcmForm!: FormGroup;
+  qcmData!: QcmResponse;
+  pdfUrl: string | null = null;
 
-  constructor(private qcmApiService: QcmApiService) {}
+  constructor(
+    private fb: FormBuilder,
+    private qcmService: QcmApiService
+  ) {}
 
   ngOnInit() {
-    this.loadQcm();
-  }
-
-  loadQcm() {
-    this.qcmApiService.getQcm(this.author).subscribe({
-      next: (res) => {
-        if (res && res.qcm && res.qcm.length > 0) {
-          this.qcmItems = res.qcm;
-          this.qcmId = res.qcm_id;
-          this.userAnswers = new Array(this.qcmItems.length).fill(-1);
-          this.error = '';
-          this.successMessage = '';
-        } else {
-          this.error = "Aucun QCM disponible pour cet utilisateur.";
-          this.qcmItems = [];
-          this.qcmId = '';
-        }
-      },
-      error: (err) => {
-        this.error = "Erreur lors de la récupération du QCM.";
-        console.error(err);
-        this.qcmItems = [];
-        this.qcmId = '';
-      }
+    this.qcmService.getQcmByAuthor('github-action').subscribe(res => {
+      this.qcmData = res;
+      const controls: any = {};
+      res.qcm.forEach((_, i) => controls[`q${i}`] = ['', Validators.required]);
+      this.qcmForm = this.fb.group(controls);
     });
   }
 
   submitAnswers() {
-    this.error = '';
-    this.successMessage = '';
+    if (this.qcmForm.invalid) return;
+    const answers = this.qcmData.qcm.map((_, i) => this.qcmForm.value[`q${i}`]);
+    this.qcmService.submitAnswers(this.qcmData.author, this.qcmData.qcm_id, answers)
+      .subscribe();
+  }
 
-    if (this.userAnswers.includes(-1)) {
-      this.error = "Veuillez répondre à toutes les questions.";
-      return;
-    }
-
-    this.qcmApiService.submitAnswers(this.author, this.qcmId, this.userAnswers).subscribe({
-      next: () => {
-        this.successMessage = "Réponses enregistrées avec succès.";
-      },
-      error: () => {
-        this.error = "Erreur lors de l'enregistrement des réponses.";
-      }
-    });
+  downloadTeacherPdf() {
+    this.qcmService.generateTeacherPdf(this.qcmData.qcm_id)
+      .subscribe(res => this.pdfUrl = this.qcmService.apiUrl + res.pdf_url);
   }
 }
