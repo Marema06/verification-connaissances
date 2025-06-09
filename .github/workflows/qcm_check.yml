@@ -1,8 +1,10 @@
 name: CI Backend + Frontend
 
 on:
-  push:
-  workflow_dispatch:
+  # Déclencheur à chaque push
+  - push
+  # Déclencheur manuel
+  - workflow_dispatch
 
 jobs:
   test-backend-and-frontend:
@@ -15,8 +17,8 @@ jobs:
       - name: Set up Python (3.10)
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'      # Version clairement définie
-          cache: 'pip'               # Active le cache pip
+          python-version: '3.10'
+          cache: 'pip'
 
       - name: Install backend dependencies
         run: pip install -r requirements.txt
@@ -48,18 +50,6 @@ jobs:
           FILES_JSON=$(echo "$FILES" | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$FILES_JSON" >> $GITHUB_OUTPUT
 
-      - name: Send code files to backend /generate_qcm
-        if: steps.detect_files.outputs.files != '[]'
-        run: |
-          echo "Envoi des fichiers à backend..."
-          FILES=${{ steps.detect_files.outputs.files }}
-          echo "$FILES" | jq -r '.[]' | while read file; do
-            echo "Traitement de $file"
-            CODE=$(cat "$file" | jq -Rs .)
-            curl -X POST "https://lately-noble-tuna.ngrok-free.app/generate_qcm" \
-              -H "Content-Type: application/json" \
-              -d "{\"code_block\": $CODE, \"author\": \"github-action\"}"
-          done
       - name: Send code files to backend (QCM + PDF prof)
         if: steps.detect_files.outputs.files != '[]'
         run: |
@@ -74,17 +64,16 @@ jobs:
               -d "{\"qcm_id\": \"$QCM_ID\", \"author\": \"github-action\"}"
           done
 
-
       - name: Send push notification to student (optional)
         if: steps.detect_files.outputs.files != '[]'
-        run: echo "Un nouveau QCM a été généré pour {{ github.actor }}"
+        run: echo "Un nouveau QCM a été généré pour ${GITHUB_ACTOR}"
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18.x
 
-      - name: Install frontend deps
+      - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
 
