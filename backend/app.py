@@ -1,143 +1,81 @@
 import os
-import uuid
 import json
-import re
-import requests
-import string
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
 
-QCM_DIR = "qcms"
-OLLAMA_API_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "llama3"
+QCMS_FOLDER = "qcms"
+os.makedirs(QCMS_FOLDER, exist_ok=True)
 
-os.makedirs(QCM_DIR, exist_ok=True)
-
-def is_valid_author(author: str) -> bool:
-    allowed = set(string.ascii_letters + string.digits + "_-")
-    return all(c in allowed for c in author)
-
-def build_prompt(code: str) -> str:
-    return f"""
-Tu es un assistant pédagogique. Génère un QCM sur le code suivant :
-
-```{code}```
-
-Répond au format JSON :
-
-{{
-  "qcm": [
-    {{
-      "question": "Question ici",
-      "options": ["A","B","C","D"],
-      "correct_answer_index": 0
-    }}
-  ]
-}}
-"""
+def generate_qcm_from_code(code_block, author):
+    # Ici, on simule la génération via Ollama ou autre LLM
+    # Retourne un dict QCM minimal
+    qcm = {
+        "qcm_id": f"{author}_qcm_001",
+        "author": author,
+        "questions": [
+            {
+                "question": "Quelle est la fonction principale du code fourni ?",
+                "choices": ["Calcul", "Affichage", "Lecture de fichier", "Autre"],
+                "answer": "Calcul"
+            }
+        ]
+    }
+    return qcm
 
 @app.route("/generate_qcm", methods=["POST"])
 def generate_qcm():
-    data = request.get_json()
-    code = data.get("code_block","")
-    author = data.get("author","anonymous")
-    if not code:
-        return jsonify(error="code_block manquant"),400
-    if not is_valid_author(author):
-        return jsonify(error="author invalide"),400
+    data = request.json
+    code_block = data.get("code_block")
+    author = data.get("author", "unknown")
 
-    prompt = build_prompt(code)
-    try:
-        resp = requests.post(OLLAMA_API_URL, json={
-            "model": MODEL_NAME,
-            "prompt": prompt,
-            "stream": False
-        }, timeout=15)
-        resp.raise_for_status()
-    except Exception as e:
-        return jsonify(error=f"Erreur Ollama: {e}"),500
+    if not code_block:
+        return jsonify({"error": "Pas de code fourni"}), 400
 
-    try:
-        raw = resp.json().get("response","")
-        m = re.search(r'\{.*"qcm"\s*:\s*\[.*?\]\s*\}', raw, re.DOTALL)
-        if not m:
-            raise ValueError("JSON introuvable")
-        qcm_data = json.loads(m.group())
-    except Exception as e:
-        return jsonify(error=f"Parsing JSON: {e}", raw=resp.text),500
+    qcm = generate_qcm_from_code(code_block, author)
 
-    qcm_id = str(uuid.uuid4())
-    path = os.path.join(QCM_DIR, f"{qcm_id}.json")
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump({"author":author,"qcm_id":qcm_id,"qcm":qcm_data.get("qcm",[])}, f, indent=2)
+    # Sauvegarde dans qcms/<author>/<qcm_id>.json
+    author_folder = os.path.join(QCMS_FOLDER, author)
+    os.makedirs(author_folder, exist_ok=True)
+    filepath = os.path.join(author_folder, f"{qcm['qcm_id']}.json")
 
-    url = request.host_url.rstrip("/") + f"/qcms/{qcm_id}.json"
-    return jsonify(qcm_id=qcm_id, url=url)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(qcm, f, ensure_ascii=False, indent=2)
+
+    return jsonify({"qcm_id": qcm["qcm_id"]})
 
 @app.route("/generate_teacher_pdf", methods=["POST"])
 def generate_teacher_pdf():
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
-
-    data = request.get_json()
+    data = request.json
     qcm_id = data.get("qcm_id")
-    author = data.get("author","anonymous")
+    author = data.get("author", "unknown")
 
-    # charge JSON
-    qcm_path = os.path.join(QCM_DIR, f"{qcm_id}.json")
-    if not os.path.exists(qcm_path):
-        return jsonify(error="QCM introuvable"),404
+    if not qcm_id:
+        return jsonify({"error": "Pas de qcm_id fourni"}), 400
 
-    with open(qcm_path, "r", encoding="utf-8") as f:
-        qcm_data = json.load(f)
-
-    pdf_path = os.path.join(QCM_DIR, f"{qcm_id}_teacher.pdf")
-    doc = SimpleDocTemplate(pdf_path)
-    styles = getSampleStyleSheet()
-    elems = [Paragraph(f"QCM Professeur – {author}",styles["Title"]), Spacer(1,12)]
-    for i, q in enumerate(qcm_data["qcm"],1):
-        elems.append(Paragraph(f"{i}. {q['question']}", styles["Normal"]))
-        for j,opt in enumerate(q["options"],1):
-            elems.append(Paragraph(f"   {chr(64+j)}. {opt}",styles["Normal"]))
-        elems.append(Spacer(1,12))
-    doc.build(elems)
-
-    pdf_url = request.host_url.rstrip("/") + f"/qcms/{qcm_id}_teacher.pdf"
-    return jsonify(pdf_url=pdf_url)
-
-@app.route("/qcms/<path:filename>")
-def serve_qcm_file(filename):
-    return send_from_directory(QCM_DIR, filename)
+    # Ici tu peux générer un PDF avec reportlab ou autre, simulons juste un OK
+    print(f"Génération PDF pour QCM {qcm_id} de {author}")
+    return jsonify({"status": "PDF généré (simulé)"})
 
 @app.route("/get_qcm/<author>", methods=["GET"])
-def get_qcm_by_author(author):
-    # Assure-toi que le dossier existe
-    os.makedirs(QCM_DIR, exist_ok=True)
+def get_qcm(author):
+    author_folder = os.path.join(QCMS_FOLDER, author)
+    if not os.path.exists(author_folder):
+        return jsonify([])
 
+    qcm_files = [f for f in os.listdir(author_folder) if f.endswith(".json")]
     qcms = []
-    # Parcours tous les JSON du dossier
-    for fname in sorted(os.listdir(QCM_DIR), reverse=True):
-        if not fname.endswith(".json"):
-            continue
-        path = os.path.join(QCM_DIR, fname)
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception as e:
-            # Ignore les fichiers corrompus ou mal formés
-            print(f"⚠️ Ignoré {fname} : {e}")
-            continue
+    for filename in qcm_files:
+        with open(os.path.join(author_folder, filename), "r", encoding="utf-8") as f:
+            qcms.append(json.load(f))
+    return jsonify(qcms)
 
-        # Correspondance auteur (insensible à la casse)
-        if data.get("author", "").lower() == author.lower():
-            qcms.append(data)
+@app.route("/")
+def home():
+    return "API Flask pour QCM OK"
 
-    # Toujours renvoyer un JSON, même s'il est vide
-    return jsonify({"qcms": qcms})
-
-
-if __name__=="__main__":
-    app.run(host="0.0.0.0", port=5000)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)

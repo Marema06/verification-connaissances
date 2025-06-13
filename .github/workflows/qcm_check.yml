@@ -62,7 +62,7 @@ jobs:
               CODE=$(cat "$file" | jq -Rs .)
               RESP=$(curl -s -X POST "https://lately-noble-tuna.ngrok-free.app/generate_qcm" \
                 -H "Content-Type: application/json" \
-                -d "{\"code_block\": $CODE, \"author\": \"github-action\"}")
+                -d "{\"code_block\": $CODE, \"author\": \"github-action\,\"filename\": \"$file\"}")
               QCM_ID=$(echo "$RESP" | jq -r .qcm_id)
               curl -s -X POST "https://lately-noble-tuna.ngrok-free.app/generate_teacher_pdf" \
                 -H "Content-Type: application/json" \
