@@ -1,36 +1,47 @@
-import { Component, Input } from '@angular/core';
-import { QcmApiService, QcmResponse, QcmItem } from '../services/qcm-api.service';
-import {FormsModule} from '@angular/forms';
+import { Component } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { QcmApiService, QcmItem } from '../services/qcm-api.service';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-qcm',
   templateUrl: './qcm.component.html',
   imports: [
-    FormsModule
+    FormsModule,
+    CommonModule
   ],
   styleUrls: ['./qcm.component.css']
 })
 export class QcmComponent {
-  @Input() author!: string;
-  @Input() qcmId!: string;
+  author!: string;
+  qcmId!: string;
 
   qcmData: QcmItem[] = [];
-  answers: string[] = [];  // Stocke la réponse choisie par question (ex: "A", "B", "C")
+  answers: string[] = [];
   feedback: string = "";
 
-  constructor(private qcmApi: QcmApiService) {}
+  constructor(private qcmApi: QcmApiService, private route: ActivatedRoute) {}
 
   ngOnInit() {
+    // Récupère les paramètres URL
+    this.author = this.route.snapshot.paramMap.get('author') || '';
+    this.qcmId = this.route.snapshot.paramMap.get('qcmId') || '';
+
     this.loadQcm();
   }
 
   loadQcm() {
+    console.log('Author:', this.author, 'QcmId:', this.qcmId);
     this.qcmApi.getQcmsByAuthor(this.author).subscribe({
       next: (res) => {
+        console.log('QCMs reçus du backend :', res.qcms); // 🔍 Important
         const qcmObj = res.qcms.find(q => q.qcm_id === this.qcmId);
         if (qcmObj) {
           this.qcmData = qcmObj.qcm;
-          this.answers = new Array(this.qcmData.length).fill(''); // init réponses vides
+          this.answers = new Array(this.qcmData.length).fill('');
+        } else {
+          console.warn('Aucun QCM trouvé avec cet ID');
         }
       },
       error: (err) => {
@@ -38,7 +49,6 @@ export class QcmComponent {
       }
     });
   }
-
   selectAnswer(questionIndex: number, choiceLetter: string) {
     this.answers[questionIndex] = choiceLetter;
   }
