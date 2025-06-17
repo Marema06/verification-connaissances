@@ -1,54 +1,64 @@
+// src/app/qcm/qcm.component.ts
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { QcmApiService, QcmResponse } from '../services/qcm-api.service';
+import { FormsModule } from '@angular/forms';
+import { QcmApiService, QcmResponse, QcmItem } from '../services/qcm-api.service';
 import { HttpClientModule } from '@angular/common/http';
 
 @Component({
   selector: 'app-qcm',
   standalone: true,
-  imports: [CommonModule, HttpClientModule, ReactiveFormsModule],
+  imports: [ CommonModule, FormsModule, HttpClientModule ],
   templateUrl: './qcm.component.html',
   styleUrls: ['./qcm.component.css']
 })
 export class QcmComponent implements OnInit {
   qcms: QcmResponse[] = [];
-  forms: FormGroup[] = [];
-  pdfUrl: string | null = null;
-  author = 'github-action';
+  // pour chaque QCM, on stocke les réponses sélectionnées
+  userAnswers: number[][] = [];
+  error = '';
+  success = '';
 
-  constructor(private qcmService: QcmApiService, private fb: FormBuilder) {}
+  constructor(private qcmService: QcmApiService) {}
 
   ngOnInit() {
-    this.qcmService.getQcmsByAuthor(this.author).subscribe({
+    this.loadQcms();
+  }
+
+  private loadQcms() {
+    this.qcmService.getQcmsByAuthor().subscribe({
       next: res => {
         this.qcms = res.qcms;
-        // Pour chaque QCM, créer un FormGroup
-        this.qcms.forEach((qcm, idx) => {
-          const group: any = {};
-          qcm.qcm.forEach((_, i) => {
-            group['q' + i] = ['', Validators.required];
-          });
-          this.forms[idx] = this.fb.group(group);
-        });
+        // initialiser userAnswers
+        this.userAnswers = this.qcms.map(q =>
+          Array(q.qcm.length).fill(-1)
+        );
       },
-      error: err => console.error('Erreur getQcms', err)
+      error: err => {
+        console.error(err);
+        this.error = 'Impossible de charger les QCM.';
+      }
     });
   }
 
-  submit(idx: number) {
-    const form = this.forms[idx];
-    if (form.invalid) {
-      form.markAllAsTouched();
+  submit(qcmIndex: number) {
+    this.error = '';
+    this.success = '';
+    const answers = this.userAnswers[qcmIndex];
+    if (answers.some(a => a < 0)) {
+      this.error = 'Vous devez répondre à toutes les questions.';
       return;
     }
-    const answers = this.qcms[idx].qcm.map((_, i) => form.value['q' + i]);
-    this.qcmService.submitAnswers(this.author, this.qcms[idx].qcm_id, answers)
-      .subscribe(() => alert('Réponses envoyées !'));
+    const qcmId = this.qcms[qcmIndex].qcm_id;
+    this.qcmService.submitAnswers(qcmId, answers).subscribe({
+      next: () => this.success = 'Réponses envoyées ! 👍',
+      error: () => this.error = 'Échec de l’envoi des réponses.'
+    });
   }
 
-  downloadPdf(idx: number) {
-    this.qcmService.generateTeacherPdf(this.qcms[idx].qcm_id)
-      .subscribe(res => this.pdfUrl = res.pdf_url);
+  downloadPdf(qcmIndex: number) {
+    const qcmId = this.qcms[qcmIndex].qcm_id;
+    this.qcmService.generateTeacherPdf(qcmId)
+      .subscribe(res => window.open(res.pdf_url, '_blank'));
   }
 }
