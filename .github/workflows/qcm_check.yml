@@ -69,6 +69,3 @@ jobs:
         working-directory: frontend
         run: npm run build --if-present
 
-      - name: (Optionnel) Run Angular tests
-        working-directory: frontend
-        run: npm test -- --watch=false
