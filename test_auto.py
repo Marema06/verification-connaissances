@@ -1,0 +1,1 @@
+def bonjour(): print('Salut')
