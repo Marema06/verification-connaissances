@@ -1,40 +1,38 @@
-<div *ngIf="qcms.length === 0">
-  <p>Aucun QCM disponible pour l'auteur {{ author }}.</p>
-</div>
+<div class="container" *ngIf="qcms.length; else noQcm">
+  <div *ngFor="let qcm of qcms; let i = index" class="qcm-block">
+    <h3>QCM {{ i + 1 }} (ID: {{ qcm.qcm_id }})</h3>
 
-<div *ngFor="let qcm of qcms; let i = index" class="qcm-block">
-  <h3>QCM ID: {{ qcm.qcm_id }}</h3>
+    <form [formGroup]="forms[i]" (ngSubmit)="submit(i)">
+      <div *ngFor="let item of qcm.qcm; let j = index" class="question-block">
+        <p><strong>{{ j + 1 }}. {{ item.question }}</strong></p>
 
-  <form [formGroup]="forms[i]" (ngSubmit)="submit(i)">
-    <div *ngFor="let item of qcm.qcm; let j = index" class="question-block">
-      <p><strong>Question {{ j + 1 }}:</strong> {{ item.question }}</p>
+        <div *ngFor="let opt of item.options; let k = index">
+          <label>
+            <input type="radio"
+                   [formControlName]="'q' + j"
+                   [value]="k" />
+            {{ opt }}
+          </label>
+        </div>
 
-      <div *ngFor="let option of item.options; let k = index">
-        <label>
-          <input
-            type="radio"
-            [formControlName]="'q' + j"
-            [value]="k"
-            name="q{{ i }}-{{ j }}"
-          />
-          {{ option }}
-        </label>
+        <div class="error"
+             *ngIf="forms[i].controls['q' + j].touched && forms[i].controls['q' + j].invalid">
+          Réponse requise
+        </div>
       </div>
 
-      <div *ngIf="forms[i].controls['q' + j].invalid && forms[i].controls['q' + j].touched
-">
-        <small class="error">Veuillez répondre à cette question.</small>
-      </div>
-    </div>
-
-    <button type="submit" [disabled]="forms[i].invalid">Soumettre les réponses</button>
-  </form>
-
-  <button (click)="downloadPdf(i)">Télécharger PDF du professeur</button>
-
-  <div *ngIf="pdfUrl && qcms[i].qcm_id === qcms[i].qcm_id">
-    <a [href]="pdfUrl" target="_blank">Ouvrir le PDF</a>
+      <button type="submit">Soumettre les réponses</button>
+      <button type="button" (click)="downloadPdf(i)">
+        Télécharger le PDF Prof
+      </button>
+    </form>
   </div>
 
-  <hr />
+  <div *ngIf="pdfUrl" class="pdf-link">
+    <p>PDF Prof disponible — <a [href]="pdfUrl" target="_blank">Ouvrir</a></p>
+  </div>
 </div>
+
+<ng-template #noQcm>
+  <p>Aucun QCM disponible pour l’auteur « {{ author }} ».</p>
+</ng-template>

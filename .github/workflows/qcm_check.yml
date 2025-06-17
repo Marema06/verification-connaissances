@@ -1,86 +1,57 @@
 name: CI Backend + Frontend
 
 on:
-  # Déclencheur à chaque push
-  - push
-  # Déclencheur manuel
-  - workflow_dispatch
+  push:
+  workflow_dispatch:
 
 jobs:
-  test-backend-and-frontend:
+  # 1) Job de test et déploiement du backend
+  backend:
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        python-version: [3.10]
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Set up Python (3.10)
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
-          cache: 'pip'
+          python-version: ${{ matrix.python-version }}
 
       - name: Install backend dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run backend Flask server
         run: |
-          nohup python3 backend/app.py > flask.log 2>&1 &
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Start Flask server in background
+        working-directory: backend
+        run: |
+          nohup python app.py > flask.log 2>&1 &
           sleep 5
 
-      - name: Install ngrok
+      - name: Smoke-test backend health
         run: |
-          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-          sudo apt update && sudo apt install ngrok
+          curl --fail http://localhost:5000/healthz
 
-      - name: Authenticate ngrok
-        run: ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+  # 2) Job de test et build du frontend
+  frontend:
+    needs: backend   # Attend que le job backend réussisse
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        node-version: [18.x]
 
-      - name: Run ngrok tunnel (custom domain)
-        run: |
-          nohup ngrok http 5000 --domain=lately-noble-tuna.ngrok-free.app --log=stdout > ngrok.log 2>&1 &
-          sleep 5
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-      - name: Detect last modified code files (.py, .ts, .js)
-        id: detect_files
-        run: |
-          FILES=$(git diff --name-only HEAD^ HEAD | grep -E '\.(py|ts|js)$' || true)
-          echo "Fichiers détectés: $FILES"
-          FILES_JSON=$(echo "$FILES" | jq -R -s -c 'split("\n")[:-1]')
-          echo "files=$FILES_JSON" >> $GITHUB_OUTPUT
-
-      - name: Send code files to backend (QCM + PDF prof)
-        if: steps.detect_files.outputs.files != '[]'
-        run: |
-          FILES=${{ steps.detect_files.outputs.files }}
-          echo "Fichiers JSON: $FILES"
-          if [ "$FILES" != "[]" ]; then
-            echo "$FILES" | jq -r '.[]' | while read file; do
-              [ -z "$file" ] && continue
-              echo "Traitement de $file"
-              CODE=$(cat "$file" | jq -Rs .)
-              RESP=$(curl -s -X POST "https://lately-noble-tuna.ngrok-free.app/generate_qcm" \
-                -H "Content-Type: application/json" \
-                -d "{\"code_block\": $CODE, \"author\": \"github-action\,\"filename\": \"$file\"}")
-              QCM_ID=$(echo "$RESP" | jq -r .qcm_id)
-              curl -s -X POST "https://lately-noble-tuna.ngrok-free.app/generate_teacher_pdf" \
-                -H "Content-Type: application/json" \
-                -d "{\"qcm_id\": \"$QCM_ID\", \"author\": \"github-action\"}"
-            done
-          else
-            echo "Aucun fichier modifié, rien à traiter."
-          fi
-
-
-      - name: Send push notification to student (optional)
-        if: steps.detect_files.outputs.files != '[]'
-        run: echo "Un nouveau QCM a été généré pour ${GITHUB_ACTOR}"
-
-      - name: Setup Node.js
+      - name: Set up Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v3
         with:
-          node-version: 18.x
+          node-version: ${{ matrix.node-version }}
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -92,11 +63,14 @@ jobs:
           cat > src/environments/environment.ts <<EOF
           export const environment = {
             production: false,
-            apiUrl: 'https://lately-noble-tuna.ngrok-free.app',
-            apiToken: '${{ secrets.API_SECRET_TOKEN }}'
+            apiUrl: 'http://localhost:5000'
           };
           EOF
 
-      - name: Build Angular app
+      - name: Build Angular
         working-directory: frontend
         run: npm run build --if-present
+
+      - name: (Optionnel) Run Angular tests
+        working-directory: frontend
+        run: npm test -- --watch=false

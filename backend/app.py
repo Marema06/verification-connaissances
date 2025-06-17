@@ -1,81 +1,150 @@
 import os
+import uuid
 import json
-from flask import Flask, request, jsonify
+import requests
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
+# --- Configuration ---
 app = Flask(__name__)
 CORS(app)
 
-QCMS_FOLDER = "qcms"
-os.makedirs(QCMS_FOLDER, exist_ok=True)
+# Dossier où seront stockés les QCM et PDFs
+QCM_DIR = "qcms"
+os.makedirs(QCM_DIR, exist_ok=True)
 
-def generate_qcm_from_code(code_block, author):
-    # Ici, on simule la génération via Ollama ou autre LLM
-    # Retourne un dict QCM minimal
-    qcm = {
-        "qcm_id": f"{author}_qcm_001",
-        "author": author,
-        "questions": [
-            {
-                "question": "Quelle est la fonction principale du code fourni ?",
-                "choices": ["Calcul", "Affichage", "Lecture de fichier", "Autre"],
-                "answer": "Calcul"
-            }
-        ]
-    }
-    return qcm
+# API Groq
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL   = "mixtral-8x7b-32768"
+
+# --- Endpoints ---
 
 @app.route("/generate_qcm", methods=["POST"])
 def generate_qcm():
-    data = request.json
-    code_block = data.get("code_block")
-    author = data.get("author", "unknown")
+    data   = request.get_json() or {}
+    code   = data.get("code_block", "")
+    author = data.get("author", "anonymous")
 
-    if not code_block:
-        return jsonify({"error": "Pas de code fourni"}), 400
+    if not code:
+        return jsonify(error="code_block manquant"), 400
 
-    qcm = generate_qcm_from_code(code_block, author)
+    # Construire le prompt
+    prompt = f"""
+Génère un QCM de 3 questions sur ce code.
+Pour chaque question, 3 choix (A, B, C) et indique la bonne réponse.
+Répond strictement au format JSON suivant :
 
-    # Sauvegarde dans qcms/<author>/<qcm_id>.json
-    author_folder = os.path.join(QCMS_FOLDER, author)
-    os.makedirs(author_folder, exist_ok=True)
-    filepath = os.path.join(author_folder, f"{qcm['qcm_id']}.json")
+[
+  {{
+    "question": "…",
+    "choices": ["A. …", "B. …", "C. …"],
+    "answer": "A"
+  }},
+  …
+]
 
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(qcm, f, ensure_ascii=False, indent=2)
+Code :
+{code}
+"""
 
-    return jsonify({"qcm_id": qcm["qcm_id"]})
+    # Appel à l'API Groq
+    resp = requests.post(
+        GROQ_URL,
+        headers={
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "model": GROQ_MODEL,
+            "messages": [{"role": "user", "content": prompt}]
+        },
+        timeout=30
+    )
+    if resp.status_code != 200:
+        return jsonify(error="Erreur API Groq", details=resp.text), 500
+
+    body = resp.json()
+    try:
+        content = body["choices"][0]["message"]["content"]
+        qcm_id  = str(uuid.uuid4())
+        author_dir = os.path.join(QCM_DIR, author)
+        os.makedirs(author_dir, exist_ok=True)
+
+        # Sauvegarder le JSON tel quel
+        filepath = os.path.join(author_dir, f"{qcm_id}.json")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        return jsonify(status="ok", qcm_id=qcm_id), 200
+
+    except Exception as e:
+        return jsonify(error="Parsing Groq échoué", details=str(e), raw=body), 500
+
+
+@app.route("/get_qcm/<author>", methods=["GET"])
+def get_qcms(author):
+    """
+    Renvoie la liste des QCM pour un author sous la forme :
+    { qcms: [ { qcm_id, question…, choices…, answer? }… ] }
+    """
+    author_dir = os.path.join(QCM_DIR, author)
+    if not os.path.isdir(author_dir):
+        return jsonify(qcms=[]), 200
+
+    result = []
+    for fname in sorted(os.listdir(author_dir), reverse=True):
+        if not fname.endswith(".json"):
+            continue
+        path = os.path.join(author_dir, fname)
+        try:
+            data = json.loads(open(path, "r", encoding="utf-8").read())
+            data["qcm_id"] = fname[:-5]
+            result.append(data)
+        except:
+            continue
+
+    return jsonify(qcms=result), 200
+
 
 @app.route("/generate_teacher_pdf", methods=["POST"])
 def generate_teacher_pdf():
-    data = request.json
+    """
+    Génère un PDF professeur à partir d'un qcm_id.
+    """
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+
+    data   = request.get_json() or {}
+    author = data.get("author", "anonymous")
     qcm_id = data.get("qcm_id")
-    author = data.get("author", "unknown")
+    author_dir = os.path.join(QCM_DIR, author)
+    qcm_path   = os.path.join(author_dir, f"{qcm_id}.json")
 
-    if not qcm_id:
-        return jsonify({"error": "Pas de qcm_id fourni"}), 400
+    if not os.path.isfile(qcm_path):
+        return jsonify(error="QCM introuvable"), 404
 
-    # Ici tu peux générer un PDF avec reportlab ou autre, simulons juste un OK
-    print(f"Génération PDF pour QCM {qcm_id} de {author}")
-    return jsonify({"status": "PDF généré (simulé)"})
+    qcm_data = json.loads(open(qcm_path, "r", encoding="utf-8").read())
+    pdf_path = os.path.join(author_dir, f"{qcm_id}_teacher.pdf")
 
-@app.route("/get_qcm/<author>", methods=["GET"])
-def get_qcm(author):
-    author_folder = os.path.join(QCMS_FOLDER, author)
-    if not os.path.exists(author_folder):
-        return jsonify([])
+    # Génération du PDF
+    doc    = SimpleDocTemplate(pdf_path)
+    styles = getSampleStyleSheet()
+    elems  = [Paragraph(f"QCM Professeur – {author}", styles["Title"]), Spacer(1,12)]
+    for i, q in enumerate(qcm_data, start=1):
+        elems.append(Paragraph(f"{i}. {q['question']}", styles["Heading3"]))
+        for choice in q.get("choices", []):
+            elems.append(Paragraph(choice, styles["Normal"]))
+        elems.append(Spacer(1,12))
+    doc.build(elems)
 
-    qcm_files = [f for f in os.listdir(author_folder) if f.endswith(".json")]
-    qcms = []
-    for filename in qcm_files:
-        with open(os.path.join(author_folder, filename), "r", encoding="utf-8") as f:
-            qcms.append(json.load(f))
-    return jsonify(qcms)
+    return jsonify(pdf_url=f"/qcms/{author}/{qcm_id}_teacher.pdf"), 200
 
-@app.route("/")
-def home():
-    return "API Flask pour QCM OK"
+
+@app.route("/qcms/<path:filename>")
+def serve_qcm_file(filename):
+    return send_from_directory(QCM_DIR, filename)
+
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))

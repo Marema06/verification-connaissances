@@ -1,15 +1,22 @@
+.container {
+  padding: 1rem;
+}
 .qcm-block {
   margin-bottom: 2rem;
-  padding: 1rem;
   border: 1px solid #ccc;
-  border-radius: 5px;
+  padding: 1rem;
+  border-radius: 8px;
 }
-
 .question-block {
   margin-bottom: 1rem;
 }
-
 .error {
   color: red;
   font-size: 0.9rem;
+}
+.pdf-link {
+  margin-top: 1rem;
+}
+button {
+  margin-right: 0.5rem;
 }

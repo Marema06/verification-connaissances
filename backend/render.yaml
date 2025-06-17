@@ -3,6 +3,9 @@ services:
         name: backend-flask-qcm
         env: python
         plan: free
-        buildCommand: "pip install -r requirements.txt"
-        startCommand: "python app.py"
+        buildCommand: pip install -r backend/requirements.txt
+        startCommand: gunicorn backend.app:app --bind 0.0.0.0:$PORT
+        envVars:
+            -   key: PORT
+                value: "10000" # Render définit déjà PORT automatiquement, tu peux aussi ne pas le forcer
         runtime: python

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
+import { Observable } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 export interface QcmItem {
@@ -27,40 +27,26 @@ export class QcmApiService {
 
   constructor(private http: HttpClient) {}
 
-  setCurrentUser(author: string) {
-    this.currentUser = author;
-  }
-
+  /** Récupère tous les QCM générés pour un auteur */
   getQcmsByAuthor(author: string): Observable<QcmsList> {
-    const url = `${this.apiUrl}/get_qcm/${author}`;
-    return this.http.get<QcmsList>(url).pipe(
-      tap(() => console.log(`GET QCMs for author: ${author}`)),
-      catchError(err => {
-        console.error('Erreur getQcmsByAuthor :', err);
-        return throwError(() => err);
-      })
-    );
+    return this.http
+      .get<QcmsList>(`${this.apiUrl}/get_qcm/${author}`)
+      .pipe(catchError(err => { console.error('Erreur getQcmsByAuthor', err); throw err; }));
   }
 
-  submitAnswers(author: string, qcmId: string, answers: number[]): Observable<any> {
-    const payload = { author, qcm_id: qcmId, answers };
-    return this.http.post<any>(`${this.apiUrl}/submit_answers`, payload).pipe(
-      tap(() => console.log(`POST answers for QCM ${qcmId}`)),
-      catchError(err => {
-        console.error('Erreur submitAnswers :', err);
-        return throwError(() => err);
-      })
-    );
+  /** Soumet les réponses de l’utilisateur */
+  submitAnswers(author: string, qcmId: string, answers: number[]) {
+    return this.http.post(
+      `${this.apiUrl}/submit_answers`,
+      { author, qcm_id: qcmId, answers }
+    ).pipe(catchError(err => { console.error('Erreur submitAnswers', err); throw err; }));
   }
 
+  /** Génère le PDF prof pour un QCM */
   generateTeacherPdf(qcmId: string): Observable<{ pdf_url: string }> {
-    const payload = { author: this.currentUser, qcm_id: qcmId };
-    return this.http.post<{ pdf_url: string }>(`${this.apiUrl}/generate_teacher_pdf`, payload).pipe(
-      tap(() => console.log(`POST generateTeacherPdf for QCM ${qcmId}`)),
-      catchError(err => {
-        console.error('Erreur generateTeacherPdf :', err);
-        return throwError(() => err);
-      })
-    );
+    return this.http.post<{ pdf_url: string }>(
+      `${this.apiUrl}/generate_teacher_pdf`,
+      { author: this.currentUser, qcm_id: qcmId }
+    ).pipe(catchError(err => { console.error('Erreur generateTeacherPdf', err); throw err; }));
   }
 }

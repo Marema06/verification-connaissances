@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { QcmApiService, QcmResponse } from '../services/qcm-api.service';
@@ -23,9 +23,12 @@ export class QcmComponent implements OnInit {
     this.qcmService.getQcmsByAuthor(this.author).subscribe({
       next: res => {
         this.qcms = res.qcms;
+        // Pour chaque QCM, créer un FormGroup
         this.qcms.forEach((qcm, idx) => {
           const group: any = {};
-          qcm.qcm.forEach((_, i) => group['q' + i] = ['', Validators.required]);
+          qcm.qcm.forEach((_, i) => {
+            group['q' + i] = ['', Validators.required];
+          });
           this.forms[idx] = this.fb.group(group);
         });
       },
@@ -35,9 +38,13 @@ export class QcmComponent implements OnInit {
 
   submit(idx: number) {
     const form = this.forms[idx];
-    if (form.invalid) return;
+    if (form.invalid) {
+      form.markAllAsTouched();
+      return;
+    }
     const answers = this.qcms[idx].qcm.map((_, i) => form.value['q' + i]);
-    this.qcmService.submitAnswers(this.author, this.qcms[idx].qcm_id, answers).subscribe();
+    this.qcmService.submitAnswers(this.author, this.qcms[idx].qcm_id, answers)
+      .subscribe(() => alert('Réponses envoyées !'));
   }
 
   downloadPdf(idx: number) {
