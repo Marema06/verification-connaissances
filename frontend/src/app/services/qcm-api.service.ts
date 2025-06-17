@@ -1,13 +1,11 @@
-// src/app/services/qcm-api.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
 
 export interface QcmItem {
   question: string;
-  options: string[];
-  correct_answer_index: number;  // tu peux l’ignorer côté étudiant
+  choices: string[];
+  answer: string;
 }
 
 export interface QcmResponse {
@@ -15,37 +13,32 @@ export interface QcmResponse {
   qcm: QcmItem[];
 }
 
-export interface QcmsList {
-  qcms: QcmResponse[];
-}
-
-@Injectable({ providedIn: 'root' })
+@Injectable({
+  providedIn: 'root'
+})
 export class QcmApiService {
-  private apiUrl = environment.apiUrl;
-  private currentUser = 'github-action';
+  private apiUrl = 'http://localhost:5000';
 
   constructor(private http: HttpClient) {}
 
-  /** Récupère tous les QCM d'un auteur */
-  getQcmsByAuthor(): Observable<QcmsList> {
-    return this.http.get<QcmsList>(
-      `${this.apiUrl}/get_qcm/${this.currentUser}`
-    );
+  // Récupère tous les QCM générés pour un auteur
+  getQcmsByAuthor(author: string): Observable<{ qcms: QcmResponse[] }> {
+    return this.http.get<{ qcms: QcmResponse[] }>(`${this.apiUrl}/get_qcm/${author}`);
   }
 
-  /** Soumet les réponses de l'utilisateur */
-  submitAnswers(qcmId: string, answers: number[]) {
-    return this.http.post(
-      `${this.apiUrl}/submit_answers`,
-      { author: this.currentUser, qcm_id: qcmId, answers }
-    );
+  // Soumet les réponses d’un étudiant
+  submitAnswers(author: string, qcmId: string, answers: string[]): Observable<{ status: string; message: string }> {
+    return this.http.post<{ status: string; message: string }>(`${this.apiUrl}/submit_answers`, {
+      author,
+      qcm_id: qcmId,
+      answers
+    });
   }
 
-  /** Génère le PDF professeur */
-  generateTeacherPdf(qcmId: string) {
-    return this.http.post<{ pdf_url: string }>(
-      `${this.apiUrl}/generate_teacher_pdf`,
-      { author: this.currentUser, qcm_id: qcmId }
-    );
+  // Génère un PDF pour les enseignants (optionnel)
+  generateTeacherPdf(qcmId: string): Observable<{ pdf_url: string }> {
+    return this.http.post<{ pdf_url: string }>(`${this.apiUrl}/generate_teacher_pdf`, {
+      qcm_id: qcmId
+    });
   }
 }

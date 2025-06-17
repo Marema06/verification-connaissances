@@ -9,9 +9,11 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# Dossier où seront stockés les QCM et PDFs
+# Dossiers de stockage
 QCM_DIR = "qcms"
+ANSWERS_DIR = "answers"
 os.makedirs(QCM_DIR, exist_ok=True)
+os.makedirs(ANSWERS_DIR, exist_ok=True)
 
 # API Groq
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -22,14 +24,13 @@ GROQ_MODEL   = "mixtral-8x7b-32768"
 
 @app.route("/generate_qcm", methods=["POST"])
 def generate_qcm():
-    data   = request.get_json() or {}
-    code   = data.get("code_block", "")
+    data = request.get_json() or {}
+    code = data.get("code_block", "")
     author = data.get("author", "anonymous")
 
     if not code:
         return jsonify(error="code_block manquant"), 400
 
-    # Construire le prompt
     prompt = f"""
 Génère un QCM de 3 questions sur ce code.
 Pour chaque question, 3 choix (A, B, C) et indique la bonne réponse.
@@ -48,7 +49,6 @@ Code :
 {code}
 """
 
-    # Appel à l'API Groq
     resp = requests.post(
         GROQ_URL,
         headers={
@@ -66,15 +66,21 @@ Code :
 
     body = resp.json()
     try:
-        content = body["choices"][0]["message"]["content"]
-        qcm_id  = str(uuid.uuid4())
+        content_str = body["choices"][0]["message"]["content"]
+        qcm_list = json.loads(content_str)
+
+        qcm_id = str(uuid.uuid4())
         author_dir = os.path.join(QCM_DIR, author)
         os.makedirs(author_dir, exist_ok=True)
 
-        # Sauvegarder le JSON tel quel
+        obj = {
+            "qcm_id": qcm_id,
+            "qcm": qcm_list
+        }
+
         filepath = os.path.join(author_dir, f"{qcm_id}.json")
         with open(filepath, "w", encoding="utf-8") as f:
-            f.write(content)
+            json.dump(obj, f, ensure_ascii=False, indent=2)
 
         return jsonify(status="ok", qcm_id=qcm_id), 200
 
@@ -84,10 +90,6 @@ Code :
 
 @app.route("/get_qcm/<author>", methods=["GET"])
 def get_qcms(author):
-    """
-    Renvoie la liste des QCM pour un author sous la forme :
-    { qcms: [ { qcm_id, question…, choices…, answer? }… ] }
-    """
     author_dir = os.path.join(QCM_DIR, author)
     if not os.path.isdir(author_dir):
         return jsonify(qcms=[]), 200
@@ -107,11 +109,34 @@ def get_qcms(author):
     return jsonify(qcms=result), 200
 
 
+@app.route("/submit_answers", methods=["POST"])
+def submit_answers():
+    """
+    Reçoit les réponses d’un étudiant pour un QCM donné et les sauvegarde.
+    Payload attendu : { author, qcm_id, answers: [ "A", "B", "C", ... ] }
+    """
+    data = request.get_json() or {}
+    author = data.get("author")
+    qcm_id = data.get("qcm_id")
+    answers = data.get("answers")
+
+    if not author or not qcm_id or not answers:
+        return jsonify(error="author, qcm_id et answers sont requis"), 400
+
+    author_dir = os.path.join(ANSWERS_DIR, author)
+    os.makedirs(author_dir, exist_ok=True)
+
+    filepath = os.path.join(author_dir, f"{qcm_id}.json")
+    try:
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump({"author": author, "qcm_id": qcm_id, "answers": answers}, f, ensure_ascii=False, indent=2)
+        return jsonify(status="ok", message="Réponses sauvegardées"), 200
+    except Exception as e:
+        return jsonify(error="Erreur sauvegarde réponses", details=str(e)), 500
+
+
 @app.route("/generate_teacher_pdf", methods=["POST"])
 def generate_teacher_pdf():
-    """
-    Génère un PDF professeur à partir d'un qcm_id.
-    """
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet
 
@@ -127,11 +152,10 @@ def generate_teacher_pdf():
     qcm_data = json.loads(open(qcm_path, "r", encoding="utf-8").read())
     pdf_path = os.path.join(author_dir, f"{qcm_id}_teacher.pdf")
 
-    # Génération du PDF
     doc    = SimpleDocTemplate(pdf_path)
     styles = getSampleStyleSheet()
     elems  = [Paragraph(f"QCM Professeur – {author}", styles["Title"]), Spacer(1,12)]
-    for i, q in enumerate(qcm_data, start=1):
+    for i, q in enumerate(qcm_data.get("qcm", []), start=1):
         elems.append(Paragraph(f"{i}. {q['question']}", styles["Heading3"]))
         for choice in q.get("choices", []):
             elems.append(Paragraph(choice, styles["Normal"]))

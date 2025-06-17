@@ -1,41 +1,30 @@
-<!-- src/app/qcm/qcm.component.html -->
-<div class="container">
+<div *ngIf="qcmData.length === 0">
+  Chargement du QCM...
+</div>
 
-  <h2>Vos QCM générés (automatiquement)</h2>
+<div *ngIf="qcmData.length > 0">
+  <form (ngSubmit)="submit()">
+    <div *ngFor="let q of qcmData; let i = index" class="question-block">
+      <p><strong>Q{{i + 1}}. {{ q.question }}</strong></p>
 
-  <div *ngIf="error" class="alert alert-danger">{{ error }}</div>
-  <div *ngIf="success" class="alert alert-success">{{ success }}</div>
-
-  <div *ngIf="qcms.length === 0">
-    Aucun QCM disponible pour l’auteur.
-  </div>
-
-  <div *ngFor="let qcm of qcms; let i = index" class="card mb-4 p-3">
-    <h5>QCM #{{ i + 1 }} — ID: {{ qcm.qcm_id }}</h5>
-    <form (ngSubmit)="submit(i)">
-      <div *ngFor="let item of qcm.qcm; let j = index" class="mb-3">
-        <p><strong>{{ j + 1 }}. {{ item.question }}</strong></p>
-        <div *ngFor="let opt of item.options; let k = index">
-          <label class="form-check-label">
-            <input
-              class="form-check-input"
-              type="radio"
-              name="q{{i}}_{{j}}"
-              [value]="k"
-              [(ngModel)]="userAnswers[i][j]"
-              required
-            >
-            {{ opt }}
-          </label>
-        </div>
+      <div *ngFor="let choice of q.choices">
+        <label>
+          <input
+            type="radio"
+            [name]="'q' + i"
+            [value]="choice.charAt(0)"
+          (change)="selectAnswer(i, choice.charAt(0))"
+          [checked]="answers[i] === choice.charAt(0)"
+          required
+          />
+          {{ choice }}
+        </label>
       </div>
-      <button type="submit" class="btn btn-primary">Soumettre ce QCM</button>
-      <button type="button"
-              class="btn btn-link"
-              (click)="downloadPdf(i)">
-        Télécharger PDF Prof
-      </button>
-    </form>
-  </div>
+      <hr />
+    </div>
 
+    <button type="submit">Soumettre</button>
+  </form>
+
+  <p class="feedback" *ngIf="feedback">{{ feedback }}</p>
 </div>

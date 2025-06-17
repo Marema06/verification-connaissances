@@ -1,0 +1,10 @@
+{
+  "qcm_id": "test_auto.py",
+  "qcm": [
+    {
+      "question": "Que fait la fonction addition ?",
+      "choices": ["Additionne deux nombres", "Soustrait deux nombres", "Multiplie deux nombres", "Divise deux nombres"],
+      "answer": "Additionne deux nombres"
+    }
+  ]
+}
