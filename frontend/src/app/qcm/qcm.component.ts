@@ -1,54 +1,63 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { QcmApiService, QcmItem } from '../services/qcm-api.service';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { catchError, of, switchMap } from 'rxjs';
 
 @Component({
   selector: 'app-qcm',
+  standalone: true, // ✅ Important pour Angular 17+
   templateUrl: './qcm.component.html',
+  styleUrls: ['./qcm.component.css'],
   imports: [
     FormsModule,
     CommonModule
-  ],
-  styleUrls: ['./qcm.component.css']
+  ]
 })
 export class QcmComponent {
-  author!: string;
-  qcmId!: string;
+  private route = inject(ActivatedRoute);
+  private qcmApi = inject(QcmApiService);
 
+  // Données du QCM
   qcmData: QcmItem[] = [];
   answers: string[] = [];
   feedback: string = "";
+  isLoading = true;
 
-  constructor(private qcmApi: QcmApiService, private route: ActivatedRoute) {}
+  // Solution pour le prerendering
+  constructor() {
+    this.route.paramMap.pipe(
+      switchMap(params => {
+        const author = params.get('author') || '';
+        const qcmId = params.get('qcmId') || '';
 
-  ngOnInit() {
-    // Récupère les paramètres URL
-    this.author = this.route.snapshot.paramMap.get('author') || '';
-    this.qcmId = this.route.snapshot.paramMap.get('qcmId') || '';
+        console.log('Chargement QCM pour:', author, qcmId);
 
-    this.loadQcm();
-  }
-
-  loadQcm() {
-    console.log('Author:', this.author, 'QcmId:', this.qcmId);
-    this.qcmApi.getQcmsByAuthor(this.author).subscribe({
+        return this.qcmApi.getQcmsByAuthor(author).pipe(
+          catchError(err => {
+            console.error("Erreur API", err);
+            return of({ qcms: [] });
+          })
+        );
+      })
+    ).subscribe({
       next: (res) => {
-        console.log('QCMs reçus du backend :', res.qcms); // 🔍 Important
-        const qcmObj = res.qcms.find(q => q.qcm_id === this.qcmId);
+        const qcmObj = res.qcms.find(q => q.qcm_id === this.route.snapshot.paramMap.get('qcmId'));
         if (qcmObj) {
           this.qcmData = qcmObj.qcm;
           this.answers = new Array(this.qcmData.length).fill('');
-        } else {
-          console.warn('Aucun QCM trouvé avec cet ID');
         }
+        this.isLoading = false;
       },
       error: (err) => {
-        console.error("Erreur chargement QCM", err);
+        this.isLoading = false;
+        this.feedback = "Erreur de chargement";
       }
     });
   }
+
+  // Méthodes existantes conservées
   selectAnswer(questionIndex: number, choiceLetter: string) {
     this.answers[questionIndex] = choiceLetter;
   }
@@ -59,10 +68,11 @@ export class QcmComponent {
       return;
     }
 
-    this.qcmApi.submitAnswers(this.author, this.qcmId, this.answers).subscribe({
-      next: (res) => {
-        this.feedback = "Réponses soumises avec succès !";
-      },
+    const author = this.route.snapshot.paramMap.get('author') || '';
+    const qcmId = this.route.snapshot.paramMap.get('qcmId') || '';
+
+    this.qcmApi.submitAnswers(author, qcmId, this.answers).subscribe({
+      next: () => this.feedback = "Réponses soumises avec succès !",
       error: (err) => {
         this.feedback = "Erreur lors de la soumission : " + (err.error?.message || err.message);
       }
