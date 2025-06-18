@@ -68,44 +68,63 @@ jobs:
             fi
           done
 
-      # 5. Test d'intégration complet (sans jq)
+       # 5. Test d'intégration complet
       - name: Test QCM Generation
         run: |
+          # Installer jq pour le traitement JSON
+          sudo apt-get update
+          sudo apt-get install -y jq
+
           # Générer un QCM
           echo "Envoi de la requête POST..."
-          curl -s -X POST http://localhost:5000/generate_qcm \
+          RESPONSE_RAW=$(curl -s -X POST http://localhost:5000/generate_qcm \
             -H "Content-Type: application/json" \
-            -d '{"code":"def hello():\\n    print(\\"Hello World\\")"}' \
-            > response.json
+            -d '{"code":"def hello():\\n    print(\\"Hello World\\")"}')
 
-          echo "Réponse:"
-          cat response.json
+          echo "Réponse brute: $RESPONSE_RAW"
 
-          # Extraire l'ID avec Python
-          QCM_ID=$(python -c "import json; f=open('response.json'); data=json.load(f); print(data.get('qcm_id', ''))")
+          # Traiter la réponse JSON
+          if ! echo "$RESPONSE_RAW" | jq -e . >/dev/null 2>&1; then
+            echo "Erreur: Réponse JSON invalide"
+            echo "$RESPONSE_RAW"
+            exit 1
+          fi
 
-          if [ -z "$QCM_ID" ]; then
+          QCM_ID=$(echo "$RESPONSE_RAW" | jq -r '.qcm_id')
+
+          if [ -z "$QCM_ID" ] || [ "$QCM_ID" = "null" ]; then
             echo "Erreur: Aucun QCM_ID reçu"
+            echo "Réponse complète:"
+            echo "$RESPONSE_RAW" | jq .
             exit 1
           fi
 
           echo "QCM ID: $QCM_ID"
 
           # Récupérer le QCM
-          curl -s http://localhost:5000/qcm/$QCM_ID > qcm.json
+          echo "Récupération du QCM $QCM_ID..."
+          QCM_DATA=$(curl -s http://localhost:5000/qcm/$QCM_ID)
+
+          if ! echo "$QCM_DATA" | jq -e . >/dev/null 2>&1; then
+            echo "Erreur: QCM JSON invalide"
+            echo "$QCM_DATA"
+            exit 1
+          fi
+
           echo "QCM récupéré:"
-          cat qcm.json
+          echo "$QCM_DATA" | jq .
 
-          # Vérifier les questions avec Python
-          QUESTION_COUNT=$(python -c "import json; f=open('qcm.json'); data=json.load(f); print(len(data.get('questions', [])))")
+          # Vérifier que des questions existent
+          QUESTION_COUNT=$(echo "$QCM_DATA" | jq '.questions | length')
 
-          if [ "$QUESTION_COUNT" -lt 1 ]; then
+          if [ -z "$QUESTION_COUNT" ] || [ "$QUESTION_COUNT" -lt 1 ]; then
             echo "Erreur: Aucune question générée"
+            echo "Structure du QCM:"
+            echo "$QCM_DATA" | jq .
             exit 1
           fi
 
           echo "Success: $QUESTION_COUNT questions générées"
-
       # 6. Cleanup
       - name: Stop services
         if: always()
