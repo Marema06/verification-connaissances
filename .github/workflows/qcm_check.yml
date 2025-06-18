@@ -19,22 +19,18 @@ jobs:
         run: |
           # Installation
           curl -fsSL https://ollama.com/install.sh | OLLAMA_NOBLAS=1 sh
-
           # Configuration pour mode CPU
           echo "OLLAMA_NOBLAS=1" >> $GITHUB_ENV
           echo "HOME=/github/home" >> $GITHUB_ENV
-
           # Démarrer le serveur en arrière-plan
           nohup ollama serve > ollama.log 2>&1 &
           echo $! > ollama.pid
           sleep 5
-
       # 2. Télécharger un modèle optimisé CPU
       - name:  Download CPU-optimized model
         run: |
           ollama pull orca-mini  # Modèle plus léger que llama3
           ollama list
-
       # 3. Setup Python/Flask
       - name:  Setup Python
         uses: actions/setup-python@v4
@@ -45,7 +41,6 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install gunicorn
-
       # 4. Démarrer Flask
       - name:  Start Flask
         env:
@@ -55,7 +50,6 @@ jobs:
           cd backend
           nohup gunicorn --bind 0.0.0.0:5000 --workers 1 app:app > flask.log 2>&1 &
           echo $! > flask.pid
-
           # Attendre que Flask soit prêt
           for i in {1..10}; do
             if curl -s http://localhost:5000/healthz; then
@@ -64,37 +58,31 @@ jobs:
             fi
             sleep 2
           done
-
       # 5. Test d'intégration
       - name:  Test QCM Generation
         run: |
           curl -X POST http://localhost:5000/generate_qcm \
             -H "Content-Type: application/json" \
             -d '{"code_block":"def hello():\n    print(\\"Hello\\")","author":"github_action"}'
-
             # ===== CLEANUP =====
       - name:  Stop services
         if: always()
         run: |
           echo "=== Nettoyage des processus ==="
-
           # Arrêt Flask
           if [ -f backend/flask.pid ]; then
             echo "Arrêt de Flask..."
             kill -9 $(cat backend/flask.pid) 2>/dev/null || true
             rm -f backend/flask.pid
           fi
-
           # Arrêt Ollama
           if [ -f ollama.pid ]; then
             echo "Arrêt d'Ollama..."
             kill -9 $(cat ollama.pid) 2>/dev/null || true
             rm -f ollama.pid
           fi
-
           # Nettoyage supplémentaire des processus zombie
           pkill -f "ollama serve" 2>/dev/null || true
           pkill -f "gunicorn" 2>/dev/null || true
-
           echo "=== Vérification finale ==="
           ps aux | grep -E "ollama|gunicorn" || echo "Aucun processus résiduel trouvé"
