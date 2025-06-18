@@ -3,9 +3,13 @@ import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { catchError } from 'rxjs/operators';
 import { throwError } from 'rxjs';
+import { CommonModule } from '@angular/common'; // Import ajouté
+import { FormsModule } from '@angular/forms';   // Import ajouté
 
 @Component({
   selector: 'app-qcm',
+  standalone: true,      // Ajouté
+  imports: [CommonModule, FormsModule], // Imports ajoutés
   templateUrl: './qcm.component.html',
   styleUrls: ['./qcm.component.css']
 })

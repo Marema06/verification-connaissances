@@ -45,7 +45,6 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          # Installer depuis le fichier à la racine
           pip install -r requirements.txt
           pip install gunicorn
 
@@ -55,7 +54,6 @@ jobs:
           OLLAMA_URL: "http://localhost:11434"
           OLLAMA_MODEL: "orca-mini"
         run: |
-          # Démarrer depuis le dossier racine
           nohup gunicorn --timeout 300 --bind 0.0.0.0:5000 --workers 1 backend.app:app > flask.log 2>&1 &
           echo $! > flask.pid
 
@@ -133,10 +131,10 @@ jobs:
           echo "=== Logs Flask ==="
           cat flask.log || echo "Pas de log Flask"
 
-      # 7. Upload logs for debugging
+      # 7. Upload logs for debugging - CORRECTION ICI
       - name: Upload logs
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # Changé de v3 à v4
         with:
           name: service-logs
           path: |
