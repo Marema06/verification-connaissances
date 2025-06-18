@@ -11,87 +11,90 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Checkout code
+      - name:  Checkout code
         uses: actions/checkout@v4
 
-      # 1. Ollama avec vérification
-      - name: Install Ollama (CPU Mode)
+      # 1. Install Ollama en mode CPU
+      - name:  Install Ollama (CPU Mode)
         run: |
+          # Installation
           curl -fsSL https://ollama.com/install.sh | OLLAMA_NOBLAS=1 sh
+
+          # Configuration pour mode CPU
           echo "OLLAMA_NOBLAS=1" >> $GITHUB_ENV
           echo "HOME=/github/home" >> $GITHUB_ENV
 
+          # Démarrer le serveur en arrière-plan
           nohup ollama serve > ollama.log 2>&1 &
           echo $! > ollama.pid
+          sleep 5
 
-          for i in {1..15}; do
-            if curl -s localhost:11434 >/dev/null; then
-              echo "Ollama ready"
-              break
-            fi
-            echo "Waiting for Ollama ($i/15)..."
-            sleep 5
-          done
-
-      # 2. Téléchargement modèle
-      - name: Download CPU-optimized model
+      # 2. Télécharger un modèle optimisé CPU
+      - name:  Download CPU-optimized model
         run: |
-          ollama pull orca-mini
+          ollama pull orca-mini  # Modèle plus léger que llama3
           ollama list
 
-      # 3. Setup Python
-      - name: Setup Python
+      # 3. Setup Python/Flask
+      - name:  Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install Python dependencies
+      - name:  Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt gunicorn
+          pip install -r requirements.txt
+          pip install gunicorn
 
-      # 4. Flask avec timeout étendu
-      - name: Start Flask
+      # 4. Démarrer Flask
+      - name:  Start Flask
         env:
-          OLLAMA_BASE_URL: "http://localhost:11434"
+          OLLAMA_URL: "http://localhost:11434"
           OLLAMA_MODEL: "orca-mini"
-          PYTHONUNBUFFERED: 1
         run: |
-          nohup gunicorn --timeout 300 --bind 0.0.0.0:5000 --workers 1 app:app > flask.log 2>&1 &
+          cd backend
+          nohup gunicorn --bind 0.0.0.0:5000 --workers 1 app:app > flask.log 2>&1 &
           echo $! > flask.pid
 
-          for i in {1..15}; do
+          # Attendre que Flask soit prêt
+          for i in {1..10}; do
             if curl -s http://localhost:5000/healthz; then
-              echo "Flask ready"
+              echo " Flask ready"
               break
             fi
-            echo "Waiting for Flask ($i/15)..."
-            sleep 5
+            sleep 2
           done
 
-      # 5. Test avec timeout augmenté
-      - name: Test QCM Generation
+      # 5. Test d'intégration
+      - name:  Test QCM Generation
         run: |
-          sudo apt-get install -y jq
-
-          echo "Envoi de la requête POST..."
-          RESPONSE_RAW=$(curl --max-time 120 -s -X POST http://localhost:5000/generate_qcm \
+          curl -X POST http://localhost:5000/generate_qcm \
             -H "Content-Type: application/json" \
-            -d '{"code":"def hello():\\n    print(\\"Hello World\\")"}')
+            -d '{"code_block":"def hello():\n    print(\\"Hello\\")","author":"github_action"}'
 
-          # ... (reste du test inchangé)
-
-      # 6. Cleanup et logs
-      - name: Stop services
+            # ===== CLEANUP =====
+      - name:  Stop services
         if: always()
         run: |
-          # ... (nettoyage existant)
+          echo "=== Nettoyage des processus ==="
 
-      - name: Upload logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: service-logs
-          path: |
-            ollama.log
-            flask.log
+          # Arrêt Flask
+          if [ -f backend/flask.pid ]; then
+            echo "Arrêt de Flask..."
+            kill -9 $(cat backend/flask.pid) 2>/dev/null || true
+            rm -f backend/flask.pid
+          fi
+
+          # Arrêt Ollama
+          if [ -f ollama.pid ]; then
+            echo "Arrêt d'Ollama..."
+            kill -9 $(cat ollama.pid) 2>/dev/null || true
+            rm -f ollama.pid
+          fi
+
+          # Nettoyage supplémentaire des processus zombie
+          pkill -f "ollama serve" 2>/dev/null || true
+          pkill -f "gunicorn" 2>/dev/null || true
+
+          echo "=== Vérification finale ==="
+          ps aux | grep -E "ollama|gunicorn" || echo "Aucun processus résiduel trouvé"
