@@ -10,7 +10,14 @@ export class QcmApiService {
 
   constructor(private http: HttpClient) { }
 
-  getQcmForCommit(qcmId: string): Observable<any> {
+  getQcm(qcmId: string): Observable<any> {
     return this.http.get(`${this.apiUrl}/qcm/${qcmId}`);
+  }
+
+  submitAnswers(qcmId: string, answers: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/submit`, {
+      qcm_id: qcmId,
+      answers: answers
+    });
   }
 }

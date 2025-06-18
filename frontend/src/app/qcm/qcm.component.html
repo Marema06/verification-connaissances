@@ -1,22 +1,51 @@
 <div class="qcm-container">
-  <h2>QCM sur votre dernier commit</h2>
-  <p>Testez votre compréhension du code que vous avez écrit</p>
-
-  <div *ngFor="let q of questions; let i = index" class="question">
-    <h3>{{i+1}}. {{q.question}}</h3>
-    <div *ngFor="let choice of q.choices; let j = index" class="choice">
-      <label>
-        <input type="radio"
-               name="q{{i}}"
-               [(ngModel)]="answers[i]"
-               [value]="j">
-        {{choice}}
-      </label>
-    </div>
-    <p *ngIf="answers[i] == q.answer" class="explanation">
-      <strong>Explication:</strong> {{q.explanation}}
-    </p>
+  <div *ngIf="isLoading" class="loading-state">
+    <p>Chargement du QCM en cours...</p>
   </div>
 
-  <button (click)="submit()">Soumettre</button>
+  <div *ngIf="errorMessage" class="error-state">
+    <p>{{ errorMessage }}</p>
+    <p>Vérifiez que l'URL contient un ID de QCM valide.</p>
+  </div>
+
+  <div *ngIf="!isLoading && !errorMessage && questions.length > 0">
+    <h1>QCM Technique</h1>
+    <p class="qcm-id">ID: {{ qcmId }}</p>
+
+    <form (ngSubmit)="submitAnswers()">
+      <div *ngFor="let question of questions; let i = index" class="question-card">
+        <h3>Question {{i+1}}: {{question.question}}</h3>
+
+        <div *ngFor="let choice of question.choices" class="choice">
+          <label>
+            <input type="radio"
+                   [name]="'question_'+i"
+                   [value]="choice"
+                   [(ngModel)]="answers[i]">
+            {{choice}}
+          </label>
+        </div>
+
+        <div *ngIf="isSubmitted" class="explanation">
+          <p>{{ getAnswerExplanation(question, answers[i]) }}</p>
+        </div>
+      </div>
+
+      <button type="submit" class="submit-btn" *ngIf="!isSubmitted">
+        Valider les réponses
+      </button>
+    </form>
+
+    <div *ngIf="isSubmitted" class="results">
+      <h2>Résultats</h2>
+      <p>Votre score: <strong>{{score}}/{{questions.length}}</strong></p>
+      <div class="progress-container">
+        <div class="progress-bar" [style.width.%]="(score || 0) / questions.length * 100"></div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="!isLoading && !errorMessage && questions.length === 0" class="no-questions">
+    <p>Aucune question disponible pour ce QCM.</p>
+  </div>
 </div>

@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { QcmApiService } from '../services/qcm-api.service';
+import { HttpClient } from '@angular/common/http';
+import { catchError } from 'rxjs/operators';
+import { throwError } from 'rxjs';
 
 @Component({
   selector: 'app-qcm',
@@ -8,12 +10,17 @@ import { QcmApiService } from '../services/qcm-api.service';
   styleUrls: ['./qcm.component.css']
 })
 export class QcmComponent implements OnInit {
-  questions: any[] = [];
   qcmId: string = '';
+  questions: any[] = [];
+  answers: { [key: string]: string } = {};
+  isLoading = true;
+  errorMessage = '';
+  isSubmitted = false;
+  score: number | null = null;
 
   constructor(
     private route: ActivatedRoute,
-    private qcmApiService: QcmApiService
+    private http: HttpClient
   ) {}
 
   ngOnInit() {
@@ -21,11 +28,62 @@ export class QcmComponent implements OnInit {
       this.qcmId = params.get('qcmId') || '';
 
       if (this.qcmId) {
-        this.qcmApiService.getQcmForCommit(this.qcmId).subscribe({
-          next: (data) => this.questions = data.questions || [],
-          error: (err) => console.error('Erreur:', err)
-        });
+        this.loadQcm();
+      } else {
+        this.errorMessage = 'ID de QCM manquant dans l\'URL';
+        this.isLoading = false;
       }
     });
+  }
+
+  loadQcm() {
+    this.http.get<any>(`http://localhost:5000/qcm/${this.qcmId}`)
+      .pipe(
+        catchError(err => {
+          this.isLoading = false;
+          this.errorMessage = 'Erreur de chargement du QCM';
+          return throwError(err);
+        })
+      )
+      .subscribe({
+        next: (data) => {
+          this.questions = data.questions || [];
+          this.isLoading = false;
+        },
+        error: (err) => {
+          console.error(err);
+        }
+      });
+  }
+
+  submitAnswers() {
+    this.isSubmitted = true;
+
+    // Calcul du score
+    this.score = this.questions.reduce((total, question, index) => {
+      const userAnswer = this.answers[index];
+      const correctAnswer = this.getCorrectAnswer(question);
+      return total + (userAnswer === correctAnswer ? 1 : 0);
+    }, 0);
+
+    // Envoi des réponses au backend
+    this.http.post('http://localhost:5000/submit', {
+      qcm_id: this.qcmId,
+      answers: this.answers
+    }).subscribe({
+      next: () => console.log('Réponses enregistrées'),
+      error: (err) => console.error('Erreur d\'enregistrement', err)
+    });
+  }
+
+  getCorrectAnswer(question: any): string {
+    return question.answer;
+  }
+
+  getAnswerExplanation(question: any, answer: string): string {
+    if (answer === question.answer) {
+      return `✓ Correct: ${question.explanation}`;
+    }
+    return `✗ Incorrect. La bonne réponse est: ${question.answer}`;
   }
 }

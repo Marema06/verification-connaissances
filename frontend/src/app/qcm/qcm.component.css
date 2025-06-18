@@ -1,92 +1,115 @@
-.generate-btn {
-  background: #4285f4;
-  color: white;
-  padding: 12px 24px;
-  border: none;
-  border-radius: 4px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.generate-btn:hover {
-  background: #3367d6;
-}
-
-.qcm-form {
+.qcm-container {
   max-width: 800px;
   margin: 20px auto;
   padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.loading-state, .error-state, .no-questions {
+  text-align: center;
+  padding: 40px 20px;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.loading-state {
+  background-color: #f0f8ff;
+  border: 1px solid #cce6ff;
+}
+
+.error-state {
+  background-color: #ffebee;
+  border: 1px solid #ffcdd2;
+  color: #d32f2f;
+}
+
+.no-questions {
+  background-color: #fff8e1;
+  border: 1px solid #ffecb3;
+}
+
+.qcm-id {
+  color: #666;
+  font-size: 0.9em;
+  margin-bottom: 20px;
+  text-align: center;
 }
 
 .question-card {
-  background: #ffffff;
+  background: white;
   border-radius: 8px;
   padding: 20px;
   margin-bottom: 25px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  border-left: 4px solid #4285f4;
 }
 
 .choice {
-  margin: 8px 0;
+  margin: 10px 0;
   padding: 12px 15px;
-  background: #f5f5f5;
+  background: #f8f9fa;
   border-radius: 4px;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
 }
 
 .choice:hover {
-  background: #ebebeb;
+  background: #e9ecef;
 }
 
-.choice.correct {
-  background: #e8f5e9;
-  border-left: 4px solid #4caf50;
+.choice label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
 }
 
-input[type="radio"] {
+.choice input[type="radio"] {
   margin-right: 10px;
 }
 
 .explanation {
   margin-top: 15px;
   padding: 15px;
-  background: #f0f7ff;
+  background: #e8f5e9;
   border-radius: 6px;
-  border-left: 4px solid #2196f3;
+  font-size: 0.95em;
 }
 
 .submit-btn {
   display: block;
   width: 100%;
-  background: #4caf50;
+  background: #4285f4;
   color: white;
-  padding: 14px;
   border: none;
+  padding: 14px;
   border-radius: 4px;
   font-size: 16px;
   cursor: pointer;
   margin-top: 20px;
+  transition: background-color 0.3s;
+}
+
+.submit-btn:hover {
+  background: #3367d6;
 }
 
 .results {
   text-align: center;
   margin-top: 30px;
   padding: 20px;
-  background: #f5f5f5;
+  background: #f8f9fa;
   border-radius: 8px;
 }
 
-.progress-bar {
+.progress-container {
   height: 10px;
   background: #e0e0e0;
   border-radius: 5px;
-  margin-top: 15px;
+  margin: 20px 0;
   overflow: hidden;
 }
 
-.progress-bar div {
+.progress-bar {
   height: 100%;
-  background: #4caf50;
+  background: #34a853;
   transition: width 0.5s;
 }
