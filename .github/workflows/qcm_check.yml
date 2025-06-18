@@ -5,66 +5,47 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 1) Job de test et déploiement du backend
-  backend:
+  build-and-test:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - name: 📥 Checkout
+        uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: 🐍 Setup Python 3.10
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: '3.10'
 
-      - name: Check Python version
-        run: python --version
-
-      - name: Install backend dependencies
+      - name: 🚀 Start Flask + health check
         run: |
+          echo "Install deps (depuis la racine)"
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Start Flask server in background
-        working-directory: backend
-        run: |
-          nohup python app.py > flask.log 2>&1 &
+          echo "Démarrage de Flask en arrière-plan"
+          nohup python backend/app.py > backend/flask.log 2>&1 &
           sleep 5
 
-      - name: Smoke-test backend health
-        run: |
+          echo "--- Logs Flask ---"
+          tail -n 20 backend/flask.log || true
+          echo "------------------"
+
+          echo "Test /healthz"
           curl --fail http://localhost:5000/healthz
 
-  # 2) Job de test et build du frontend
-  frontend:
-    needs: backend
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        node-version: [18.x]
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Set up Node.js ${{ matrix.node-version }}
+      - name: 🔧 Setup Node 18.x
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '18.x'
 
-      - name: Install frontend dependencies
+      - name: 📦 Install frontend deps
         working-directory: frontend
         run: npm ci
 
-      - name: Write Angular environment (dev)
-        working-directory: frontend
-        run: |
-          cat > src/environments/environment.ts <<EOF
-          export const environment = {
-            production: false,
-            apiUrl: 'http://localhost:5000'
-          };
-          EOF
-
-      - name: Build Angular
+      - name: 🛠️ Build Angular
         working-directory: frontend
         run: npm run build --if-present
+
+      - name: ✅ Run Angular tests
+        working-directory: frontend
+        run: npm test -- --watch=false
