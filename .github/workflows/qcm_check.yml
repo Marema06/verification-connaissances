@@ -5,21 +5,21 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 1) Job de test et déploiement du backend
-  backend:
+  build-and-test:
     runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Set up Python
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      # --- Back-end ---
+      - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      - name: Check Python version
-        run: python --version
-
       - name: Install backend dependencies
+        working-directory: backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -30,32 +30,20 @@ jobs:
           nohup python app.py > flask.log 2>&1 &
           sleep 5
 
-      - name: Smoke-test backend health
-        run: |
-          curl --fail http://localhost:5000/healthz
+      - name: Smoke-test backend
+        run: curl --fail http://localhost:5000/healthz
 
-  # 2) Job de test et build du frontend
-  frontend:
-    needs: backend
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        node-version: [18.x]
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Set up Node.js ${{ matrix.node-version }}
+      # --- Front-end ---
+      - name: Set up Node.js 18.x
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: "18.x"
 
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
 
-      - name: Write Angular environment (dev)
+      - name: Write Angular environment
         working-directory: frontend
         run: |
           cat > src/environments/environment.ts <<EOF
@@ -65,6 +53,10 @@ jobs:
           };
           EOF
 
-      - name: Build Angular
+      - name: Build Angular app
         working-directory: frontend
         run: npm run build --if-present
+
+      - name: Run Angular tests
+        working-directory: frontend
+        run: npm test -- --watch=false
