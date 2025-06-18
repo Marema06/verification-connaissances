@@ -8,81 +8,214 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 45  # Augmenté pour les modèles CPU
 
     steps:
-      - name:  Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Install Ollama en mode CPU
-      - name:  Install Ollama (CPU Mode)
+      # 1. Installer Ollama en mode CPU
+      - name: Install Ollama (CPU Mode)
         run: |
-          # Installation
           curl -fsSL https://ollama.com/install.sh | OLLAMA_NOBLAS=1 sh
-          # Configuration pour mode CPU
           echo "OLLAMA_NOBLAS=1" >> $GITHUB_ENV
           echo "HOME=/github/home" >> $GITHUB_ENV
-          # Démarrer le serveur en arrière-plan
+
           nohup ollama serve > ollama.log 2>&1 &
           echo $! > ollama.pid
-          sleep 5
+
+          # Vérification démarrage Ollama
+          for i in {1..20}; do
+            if curl -s localhost:11434 >/dev/null; then
+              echo "Ollama ready after $i attempts"
+              break
+            fi
+            echo "Waiting for Ollama ($i/20)..."
+            sleep 5
+          done
+
+          if [ $i -eq 20 ]; then
+            echo "ERROR: Ollama failed to start"
+            cat ollama.log
+            exit 1
+          fi
+
       # 2. Télécharger un modèle optimisé CPU
-      - name:  Download CPU-optimized model
+      - name: Download CPU-optimized model
         run: |
-          ollama pull orca-mini  # Modèle plus léger que llama3
+          ollama pull orca-mini
           ollama list
+
       # 3. Setup Python/Flask
-      - name:  Setup Python
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name:  Install dependencies
+      - name: Install Python dependencies
         run: |
-          pip install -r requirements.txt
-          pip install gunicorn
-      # 4. Démarrer Flask
-      - name:  Start Flask
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt gunicorn
+
+      # 4. Démarrer Flask avec point d'entrée backend/
+      - name: Start Flask
         env:
-          OLLAMA_URL: "http://localhost:11434"
+          OLLAMA_BASE_URL: "http://localhost:11434"
           OLLAMA_MODEL: "orca-mini"
+          PYTHONUNBUFFERED: 1
         run: |
-          cd backend
-          nohup gunicorn --bind 0.0.0.0:5000 --workers 1 app:app > flask.log 2>&1 &
+          # Vérifier structure fichiers
+          echo "Project structure:"
+          ls -la
+
+          # Démarrer Gunicorn
+          echo "Starting Flask with entrypoint: backend.app:app"
+          nohup gunicorn --timeout 600 --bind 0.0.0.0:5000 --workers 1 --log-level debug backend.app:app > flask.log 2>&1 &
           echo $! > flask.pid
-          # Attendre que Flask soit prêt
-          for i in {1..10}; do
-            if curl -s http://localhost:5000/healthz; then
-              echo " Flask ready"
+
+          # Vérification démarrage Flask
+          for i in {1..30}; do
+            # Vérifier processus
+            if ! ps -p $(cat flask.pid) > /dev/null; then
+              echo "ERROR: Flask process died"
+              cat flask.log
+              exit 1
+            fi
+
+            # Vérifier endpoint healthz
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/healthz | grep -q 200; then
+              echo "Flask ready after $i seconds"
               break
             fi
+
+            echo "Waiting for Flask ($i/30)..."
             sleep 2
           done
-      # 5. Test d'intégration
-      - name:  Test QCM Generation
+
+          if [ $i -eq 30 ]; then
+            echo "ERROR: Flask startup timeout"
+            echo "=== Flask Log ==="
+            cat flask.log
+            exit 1
+          fi
+
+      # 5. Vérification des connections
+      - name: Verify Connections
         run: |
-          curl -X POST http://localhost:5000/generate_qcm \
+          echo "=== Active Processes ==="
+          ps aux | grep -E 'ollama|gunicorn'
+
+          echo "=== Ollama Status ==="
+          curl -v http://localhost:11434/api/tags || echo "Ollama check failed"
+
+          echo "=== Flask Debug Endpoint ==="
+          curl -v http://localhost:5000/debug || echo "Debug endpoint failed"
+
+      # 6. Test d'intégration complet
+      - name: Test QCM Generation
+        run: |
+          # Installer jq pour le traitement JSON
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+          # Créer payload avec jq
+          PAYLOAD=$(jq -n \
+            --arg code 'def hello():\n    print("Hello World")' \
+            --arg author 'github_action' \
+            '{"code": $code, "author": $author}')
+
+          echo "Sending payload: $PAYLOAD"
+
+          # Envoyer requête avec timeout étendu
+          RESPONSE_RAW=$(curl -v --max-time 300 -X POST http://localhost:5000/generate_qcm \
             -H "Content-Type: application/json" \
-            -d '{"code_block":"def hello():\n    print(\\"Hello\\")","author":"github_action"}'
-            # ===== CLEANUP =====
-      - name:  Stop services
+            -d "$PAYLOAD" 2> curl.log)
+
+          CURL_EXIT=$?
+          echo "Curl exit code: $CURL_EXIT"
+
+          # Afficher logs curl
+          echo "=== Curl Log ==="
+          cat curl.log
+
+          if [ $CURL_EXIT -ne 0 ]; then
+            echo "ERROR: Curl failed with exit code $CURL_EXIT"
+            exit 1
+          fi
+
+          echo "Raw response: $RESPONSE_RAW"
+
+          # Vérifier JSON valide
+          if ! echo "$RESPONSE_RAW" | jq -e . >/dev/null 2>&1; then
+            echo "ERROR: Invalid JSON response"
+            echo "$RESPONSE_RAW"
+            exit 1
+          fi
+
+          # Extraire QCM ID
+          QCM_ID=$(echo "$RESPONSE_RAW" | jq -r '.qcm_id')
+          if [ -z "$QCM_ID" ] || [ "$QCM_ID" = "null" ]; then
+            echo "ERROR: Missing qcm_id"
+            echo "Full response:"
+            echo "$RESPONSE_RAW" | jq .
+            exit 1
+          fi
+
+          echo "QCM ID: $QCM_ID"
+
+          # Récupérer QCM
+          echo "Fetching QCM..."
+          QCM_DATA=$(curl -s http://localhost:5000/qcm/$QCM_ID)
+
+          if ! echo "$QCM_DATA" | jq -e . >/dev/null 2>&1; then
+            echo "ERROR: Invalid QCM JSON"
+            echo "$QCM_DATA"
+            exit 1
+          fi
+
+          # Vérifier contenu
+          QUESTION_COUNT=$(echo "$QCM_DATA" | jq '.questions | length')
+          if [ -z "$QUESTION_COUNT" ] || [ "$QUESTION_COUNT" -lt 1 ]; then
+            echo "ERROR: No questions generated"
+            echo "QCM structure:"
+            echo "$QCM_DATA" | jq .
+            exit 1
+          fi
+
+          echo "SUCCESS: Generated $QUESTION_COUNT questions"
+          echo "$QCM_DATA" | jq .
+
+      # 7. Cleanup
+      - name: Stop services
         if: always()
         run: |
-          echo "=== Nettoyage des processus ==="
-          # Arrêt Flask
-          if [ -f backend/flask.pid ]; then
-            echo "Arrêt de Flask..."
-            kill -9 $(cat backend/flask.pid) 2>/dev/null || true
-            rm -f backend/flask.pid
+          echo "=== Cleaning up ==="
+
+          # Arrêter Flask
+          if [ -f flask.pid ]; then
+            echo "Stopping Flask..."
+            kill -9 $(cat flask.pid) 2>/dev/null || true
+            rm -f flask.pid
           fi
-          # Arrêt Ollama
+
+          # Arrêter Ollama
           if [ -f ollama.pid ]; then
-            echo "Arrêt d'Ollama..."
+            echo "Stopping Ollama..."
             kill -9 $(cat ollama.pid) 2>/dev/null || true
             rm -f ollama.pid
           fi
-          # Nettoyage supplémentaire des processus zombie
+
+          # Nettoyage processus
           pkill -f "ollama serve" 2>/dev/null || true
           pkill -f "gunicorn" 2>/dev/null || true
-          echo "=== Vérification finale ==="
-          ps aux | grep -E "ollama|gunicorn" || echo "Aucun processus résiduel trouvé"
+
+      # 8. Upload logs for debugging
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-logs
+          path: |
+            ollama.log
+            flask.log
+            curl.log
