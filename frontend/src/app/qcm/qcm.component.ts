@@ -1,81 +1,60 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { QcmApiService, QcmItem } from '../services/qcm-api.service';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { catchError, of, switchMap } from 'rxjs';
 
 @Component({
   selector: 'app-qcm',
-  standalone: true, // ✅ Important pour Angular 17+
+  standalone: true,
+  imports: [FormsModule, CommonModule],
   templateUrl: './qcm.component.html',
-  styleUrls: ['./qcm.component.css'],
-  imports: [
-    FormsModule,
-    CommonModule
-  ]
+  styleUrls: ['./qcm.component.css']
 })
-export class QcmComponent {
+export class QcmComponent implements OnInit {
   private route = inject(ActivatedRoute);
-  private qcmApi = inject(QcmApiService);
+  private api = inject(QcmApiService);
 
-  // Données du QCM
+  author!: string;
+  qcmId!: string;
+
   qcmData: QcmItem[] = [];
   answers: string[] = [];
-  feedback: string = "";
+  feedback = '';
+  pdfUrl: string| null = null;
   isLoading = true;
 
-  // Solution pour le prerendering
-  constructor() {
-    this.route.paramMap.pipe(
-      switchMap(params => {
-        const author = params.get('author') || '';
-        const qcmId = params.get('qcmId') || '';
+  ngOnInit() {
+    this.author = this.route.snapshot.paramMap.get('author')!;
+    this.qcmId  = this.route.snapshot.paramMap.get('qcmId')!;
 
-        console.log('Chargement QCM pour:', author, qcmId);
-
-        return this.qcmApi.getQcmsByAuthor(author).pipe(
-          catchError(err => {
-            console.error("Erreur API", err);
-            return of({ qcms: [] });
-          })
-        );
-      })
-    ).subscribe({
-      next: (res) => {
-        const qcmObj = res.qcms.find(q => q.qcm_id === this.route.snapshot.paramMap.get('qcmId'));
-        if (qcmObj) {
-          this.qcmData = qcmObj.qcm;
+    this.api.getQcmsByAuthor(this.author).subscribe({
+      next: res => {
+        const hit = res.qcms.find(q => q.qcm_id === this.qcmId);
+        if (hit) {
+          this.qcmData = hit.qcm;
           this.answers = new Array(this.qcmData.length).fill('');
         }
         this.isLoading = false;
       },
-      error: (err) => {
+      error: _ => {
+        this.feedback = 'Erreur de chargement';
         this.isLoading = false;
-        this.feedback = "Erreur de chargement";
       }
     });
-  }
-
-  // Méthodes existantes conservées
-  selectAnswer(questionIndex: number, choiceLetter: string) {
-    this.answers[questionIndex] = choiceLetter;
   }
 
   submit() {
     if (this.answers.includes('')) {
-      this.feedback = "Merci de répondre à toutes les questions avant de soumettre.";
+      this.feedback = 'Répondez à toutes les questions.';
       return;
     }
+    this.api.submitAnswers(this.author, this.qcmId, this.answers)
+      .subscribe(() => this.feedback = 'Réponses envoyées !');
+  }
 
-    const author = this.route.snapshot.paramMap.get('author') || '';
-    const qcmId = this.route.snapshot.paramMap.get('qcmId') || '';
-
-    this.qcmApi.submitAnswers(author, qcmId, this.answers).subscribe({
-      next: () => this.feedback = "Réponses soumises avec succès !",
-      error: (err) => {
-        this.feedback = "Erreur lors de la soumission : " + (err.error?.message || err.message);
-      }
-    });
+  downloadPdf() {
+    this.api.generateTeacherPdf(this.qcmId)
+      .subscribe(r => this.pdfUrl = r.pdf_url);
   }
 }

@@ -1,0 +1,20 @@
+{
+  "qcm_id": "sample-qcm",
+  "qcm": [
+    {
+      "question": "Que fait la fonction `print()` en Python ?",
+      "choices": ["A. Affiche un message à l’écran", "B. Ouvre un fichier", "C. Calcule une somme"],
+      "answer": "A"
+    },
+    {
+      "question": "Quelle structure permet de répéter un bloc en Python ?",
+      "choices": ["A. if", "B. for", "C. def"],
+      "answer": "B"
+    },
+    {
+      "question": "Comment on déclare une liste vide en Python ?",
+      "choices": ["A. `{}`", "B. `[]`", "C. `()`"],
+      "answer": "B"
+    }
+  ]
+}
