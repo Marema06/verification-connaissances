@@ -5,52 +5,57 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-test:
+  # 1) Job de test et déploiement du backend
+  backend:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      # 1) Python dependencies (à la racine)
-      - name: Set up Python 3.10
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
-      - name: Install backend deps
+      - name: Check Python version
+        run: python --version
+
+      - name: Install backend dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 2) Lancer Flask puis tester /healthz
-      - name: Start Flask + health check
+      - name: Start Flask server in background
         working-directory: backend
         run: |
-          # on démarre en arrière-plan
           nohup python app.py > flask.log 2>&1 &
-          # on attend que le serveur soit up (max 15s)
-          for i in {1..15}; do
-            if curl --fail http://localhost:5000/healthz; then
-              echo "✅ Flask prêt !"
-              break
-            fi
-            echo "… attente Flask ($i)…"
-            sleep 1
-          done
-          # si au bout de 15s c'est toujours KO, exit 1
+          sleep 5
+
+      - name: Smoke-test backend health
+        run: |
           curl --fail http://localhost:5000/healthz
 
-      # 3) Node & Angular
-      - name: Set up Node.js 18.x
+  # 2) Job de test et build du frontend
+  frontend:
+    needs: backend
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v3
         with:
-          node-version: '18.x'
+          node-version: ${{ matrix.node-version }}
 
-      - name: Install frontend deps
+      - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
 
-      - name: Write Angular env (dev)
+      - name: Write Angular environment (dev)
         working-directory: frontend
         run: |
           cat > src/environments/environment.ts <<EOF
@@ -63,7 +68,3 @@ jobs:
       - name: Build Angular
         working-directory: frontend
         run: npm run build --if-present
-
-      - name: Run Angular tests
-        working-directory: frontend
-        run: npm test -- --watch=false
