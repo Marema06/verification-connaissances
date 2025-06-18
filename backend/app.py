@@ -41,25 +41,23 @@ def send_pdf(to_addr, subject, body, pdf_path):
         smtp.login(SMTP_USER, SMTP_PASS)
         smtp.send_message(msg)
 
+# Modifiez la fonction generate_with_ollama
 def generate_with_ollama(code: str):
-    """Generate QCM using Ollama LLM"""
     prompt = f"""
-    Generate a 3-question MCQ about this Python code.
-    For each question:
-    - 3 choices (A, B, C)
-    - Mark correct answer
-    - Focus on key concepts
+    [CONTEXT]
+    You're a programming teacher creating a MCQ about this code.
+    Generate 3 questions maximum.
+    Focus on key concepts, make wrong answers plausible.
 
-    Return ONLY this JSON format:
-    [
-      {{
-        "question": "...",
-        "choices": ["A. ...", "B. ...", "C. ..."],
-        "answer": "A"
-      }}
-    ]
+    [RULES]
+    - Return ONLY valid JSON
+    - Each question must have:
+      "question": "text",
+      "choices": ["A. ...", "B. ...", "C. ..."],
+      "answer": "A|B|C"
+    - Use simple language
 
-    Code to analyze:
+    [CODE]
     {code}
     """
 
@@ -70,17 +68,17 @@ def generate_with_ollama(code: str):
                 "model": OLLAMA_MODEL,
                 "prompt": prompt,
                 "format": "json",
-                "stream": False,
-                "options": {"temperature": 0.7}
+                "options": {
+                    "temperature": 0.3,  # Plus précis en mode CPU
+                    "num_ctx": 1024      # Contexte réduit
+                }
             },
-            timeout=60
+            timeout=120  # Plus long en CPU
         )
-        response.raise_for_status()
         return json.loads(response.json()["response"])
     except Exception as e:
-        app.logger.error(f"Ollama error: {str(e)}")
+        print(f"Ollama error: {str(e)}")
         return None
-
 def stub_generate_qcm(code: str):
     """Fallback stub generator"""
     return [
