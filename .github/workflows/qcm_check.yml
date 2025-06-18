@@ -19,12 +19,13 @@ jobs:
           python-version: '3.10'
 
       - name: Install backend dependencies
-        working-directory: backend
+        # Ici on reste à la racine pour retrouver requirements.txt
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Start Flask server
+        # On se déplace ensuite dans backend pour lancer app.py
         working-directory: backend
         run: |
           nohup python app.py > flask.log 2>&1 &
