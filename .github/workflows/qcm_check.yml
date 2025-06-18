@@ -11,11 +11,11 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: 📥 Checkout code
+      - name:  Checkout code
         uses: actions/checkout@v4
 
       # 1. Install Ollama en mode CPU
-      - name: 🦙 Install Ollama (CPU Mode)
+      - name:  Install Ollama (CPU Mode)
         run: |
           # Installation
           curl -fsSL https://ollama.com/install.sh | OLLAMA_NOBLAS=1 sh
@@ -30,24 +30,24 @@ jobs:
           sleep 5
 
       # 2. Télécharger un modèle optimisé CPU
-      - name: 📦 Download CPU-optimized model
+      - name:  Download CPU-optimized model
         run: |
           ollama pull orca-mini  # Modèle plus léger que llama3
           ollama list
 
       # 3. Setup Python/Flask
-      - name: 🐍 Setup Python
+      - name:  Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: 🚀 Install dependencies
+      - name:  Install dependencies
         run: |
           pip install -r requirements.txt
           pip install gunicorn
 
       # 4. Démarrer Flask
-      - name: 🏗️ Start Flask
+      - name:  Start Flask
         env:
           OLLAMA_URL: "http://localhost:11434"
           OLLAMA_MODEL: "orca-mini"
@@ -59,22 +59,42 @@ jobs:
           # Attendre que Flask soit prêt
           for i in {1..10}; do
             if curl -s http://localhost:5000/healthz; then
-              echo "✅ Flask ready"
+              echo " Flask ready"
               break
             fi
             sleep 2
           done
 
       # 5. Test d'intégration
-      - name: 🧪 Test QCM Generation
+      - name:  Test QCM Generation
         run: |
           curl -X POST http://localhost:5000/generate_qcm \
             -H "Content-Type: application/json" \
             -d '{"code_block":"def hello():\n    print(\\"Hello\\")","author":"github_action"}'
 
-      # Nettoyage
-      - name: 🧹 Cleanup
+            # ===== CLEANUP =====
+      - name:  Stop services
         if: always()
         run: |
-          if [ -f ollama.pid ]; then kill -9 $(cat ollama.pid); fi
-          if [ -f backend/flask.pid ]; then kill -9 $(cat backend/flask.pid); fi
+          echo "=== Nettoyage des processus ==="
+
+          # Arrêt Flask
+          if [ -f backend/flask.pid ]; then
+            echo "Arrêt de Flask..."
+            kill -9 $(cat backend/flask.pid) 2>/dev/null || true
+            rm -f backend/flask.pid
+          fi
+
+          # Arrêt Ollama
+          if [ -f ollama.pid ]; then
+            echo "Arrêt d'Ollama..."
+            kill -9 $(cat ollama.pid) 2>/dev/null || true
+            rm -f ollama.pid
+          fi
+
+          # Nettoyage supplémentaire des processus zombie
+          pkill -f "ollama serve" 2>/dev/null || true
+          pkill -f "gunicorn" 2>/dev/null || true
+
+          echo "=== Vérification finale ==="
+          ps aux | grep -E "ollama|gunicorn" || echo "Aucun processus résiduel trouvé"
