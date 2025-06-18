@@ -1,48 +1,105 @@
-name: CI Backend + Frontend
+name: CI Backend + Frontend with Ollama
 
 on:
   push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build-and-test:
     runs-on: ubuntu-22.04
-    steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v3
+    timeout-minutes: 30  # Important pour le téléchargement du modèle
 
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      # ===== INSTALL OLLAMA =====
+      - name: 🦙 Install Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          ollama pull llama3
+          ollama list
+
+      # ===== BACKEND SETUP =====
       - name: 🐍 Setup Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+          cache: 'pip'
 
-      - name: 🚀 Start Flask + health check
+      - name: 🚀 Install Python dependencies
         run: |
-          echo "Install deps (depuis la racine)"
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install gunicorn
 
-          echo "Démarrage de Flask en arrière-plan"
-          nohup python backend/app.py > backend/flask.log 2>&1 &
-          sleep 5
+      - name: 🏗️ Start Services
+        env:
+          OLLAMA_URL: "http://localhost:11434"
+          OLLAMA_MODEL: "llama3"
+        run: |
+          # Démarrer Ollama
+          nohup ollama serve > ollama.log 2>&1 &
+          echo $! > ollama.pid
 
-          echo "--- Logs Flask ---"
-          tail -n 20 backend/flask.log || true
-          echo "------------------"
+          # Attendre qu'Ollama soit prêt
+          for i in {1..10}; do
+            if curl -s $OLLAMA_URL/api/tags; then
+              echo "✅ Ollama ready"
+              break
+            fi
+            sleep 3
+            echo "⏳ Waiting for Ollama ($i/10)..."
+          done
 
-          echo "Test /healthz"
-          curl --fail http://localhost:5000/healthz
+          # Démarrer Flask
+          cd backend
+          nohup gunicorn --bind 0.0.0.0:5000 --workers 1 --timeout 120 app:app > flask.log 2>&1 &
+          echo $! > flask.pid
 
-      - name: 🔧 Setup Node 18.x
+          # Vérifier Flask
+          for i in {1..10}; do
+            if curl -s http://localhost:5000/healthz; then
+              echo "✅ Flask ready"
+              break
+            fi
+            sleep 2
+            echo "⏳ Waiting for Flask ($i/10)..."
+          done
+
+      # ===== FRONTEND SETUP =====
+      - name: 🔧 Setup Node.js 18.x
         uses: actions/setup-node@v3
         with:
           node-version: '18.x'
+          cache: 'npm'
 
       - name: 📦 Install frontend deps
         working-directory: frontend
         run: npm ci
 
-      - name: 🛠️ Build Angular
+      - name: 🏗️ Build Angular
         working-directory: frontend
         run: npm run build --if-present
 
+      # ===== TESTS =====
+      - name: 🧪 Test LLM Integration
+        run: |
+          curl -X POST http://localhost:5000/generate_qcm \
+            -H "Content-Type: application/json" \
+            -d '{"code_block":"def factorial(n):\n    return 1 if n == 0 else n * factorial(n-1)","author":"github_action"}'
+
+      # ===== CLEANUP =====
+      - name: 🧹 Stop services
+        if: always()
+        run: |
+          if [ -f backend/flask.pid ]; then
+            kill -9 $(cat backend/flask.pid) || true
+          fi
+          if [ -f ollama.pid ]; then
+            kill -9 $(cat ollama.pid) || true
+          fi

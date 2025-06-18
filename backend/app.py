@@ -1,8 +1,8 @@
-# backend/app.py
 import os
 import uuid
 import json
 import smtplib
+import requests
 from email.message import EmailMessage
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -13,19 +13,21 @@ app = Flask(__name__)
 CORS(app)
 
 # --- Config ---
-QCM_DIR       = "qcms"
-TEACHER_EMAIL = os.getenv("TEACHER_EMAIL", "")  # ex: prof@example.com
-SMTP_URL      = os.getenv("SMTP_URL", "")      # ex: smtp.gmail.com
-SMTP_USER     = os.getenv("SMTP_USER", "")
-SMTP_PASS     = os.getenv("SMTP_PASS", "")
+QCM_DIR = "qcms"
+TEACHER_EMAIL = os.getenv("TEACHER_EMAIL", "")
+SMTP_URL = os.getenv("SMTP_URL", "")
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASS = os.getenv("SMTP_PASS", "")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 
 os.makedirs(QCM_DIR, exist_ok=True)
 
 # --- Helpers ---
 def send_pdf(to_addr, subject, body, pdf_path):
     msg = EmailMessage()
-    msg["From"]    = SMTP_USER
-    msg["To"]      = to_addr
+    msg["From"] = SMTP_USER
+    msg["To"] = to_addr
     msg["Subject"] = subject
     msg.set_content(body)
     with open(pdf_path, "rb") as f:
@@ -39,101 +41,121 @@ def send_pdf(to_addr, subject, body, pdf_path):
         smtp.login(SMTP_USER, SMTP_PASS)
         smtp.send_message(msg)
 
+def generate_with_ollama(code: str):
+    """Generate QCM using Ollama LLM"""
+    prompt = f"""
+    Generate a 3-question MCQ about this Python code.
+    For each question:
+    - 3 choices (A, B, C)
+    - Mark correct answer
+    - Focus on key concepts
+
+    Return ONLY this JSON format:
+    [
+      {{
+        "question": "...",
+        "choices": ["A. ...", "B. ...", "C. ..."],
+        "answer": "A"
+      }}
+    ]
+
+    Code to analyze:
+    {code}
+    """
+
+    try:
+        response = requests.post(
+            f"{OLLAMA_URL}/api/generate",
+            json={
+                "model": OLLAMA_MODEL,
+                "prompt": prompt,
+                "format": "json",
+                "stream": False,
+                "options": {"temperature": 0.7}
+            },
+            timeout=60
+        )
+        response.raise_for_status()
+        return json.loads(response.json()["response"])
+    except Exception as e:
+        app.logger.error(f"Ollama error: {str(e)}")
+        return None
+
 def stub_generate_qcm(code: str):
-    """
-    Ici tu appelleras Ollama / Groq.
-    Pour l'instant on renvoie un QCM bidon à 3 questions.
-    """
+    """Fallback stub generator"""
     return [
-        {"question": "Que fait print('Hello') ?",
-         "choices": ["A. Affiche Hello", "B. Lit un fichier", "C. Crée une variable"],
-         "answer": "A"},
-        {"question": "Quel type est `42` en Python ?",
-         "choices": ["A. str", "B. int", "C. float"],
-         "answer": "B"},
-        {"question": "Comment commente-t-on en Python ?",
-         "choices": ["A. //", "B. <!-- -->", "C. #"],
-         "answer": "C"},
+        {
+            "question": "What does this code do?",
+            "choices": [
+                "A. Calculates factorial",
+                "B. Prints hello world",
+                "C. Sorts a list"
+            ],
+            "answer": "A"
+        }
     ]
 
 # --- Routes ---
 @app.route("/healthz", methods=["GET"])
-def healthz():
-    return "OK", 200
+def health_check():
+    return jsonify({"status": "healthy"}), 200
 
 @app.route("/generate_qcm", methods=["POST"])
 def generate_qcm():
-    data   = request.get_json() or {}
-    code   = data.get("code_block", "")
+    data = request.get_json()
+    code = data.get("code_block", "").strip()
     author = data.get("author", "anonymous")
 
     if not code:
-        return jsonify(error="code_block manquant"), 400
+        return jsonify(error="Code block is required"), 400
 
-    # 1) Génère la liste de questions
-    qcm_list = stub_generate_qcm(code)
+    # Try LLM first, fallback to stub
+    qcm_list = generate_with_ollama(code) or stub_generate_qcm(code)
 
-    # 2) Crée un dossier par auteur
-    qcm_id     = str(uuid.uuid4())
+    # Generate PDFs
+    qcm_id = str(uuid.uuid4())
     author_dir = os.path.join(QCM_DIR, author)
     os.makedirs(author_dir, exist_ok=True)
 
-    # 3) PDF Étudiant (questions + choix)
+    # Student PDF (questions only)
     student_pdf = os.path.join(author_dir, f"student_{qcm_id}.pdf")
-    doc1 = SimpleDocTemplate(student_pdf)
+    doc = SimpleDocTemplate(student_pdf)
     styles = getSampleStyleSheet()
-    elems = []
-    for i, q in enumerate(qcm_list, start=1):
-        elems.append(Paragraph(f"{i}. {q['question']}", styles["Normal"]))
-        for c in q["choices"]:
-            elems.append(Paragraph(f"• {c}", styles["Normal"]))
-        elems.append(Spacer(1,12))
-    doc1.build(elems)
+    elements = []
 
-    # 4) PDF Prof (avec bonnes réponses)
+    for i, q in enumerate(qcm_list, 1):
+        elements.append(Paragraph(f"{i}. {q['question']}", styles["Normal"]))
+        for choice in q["choices"]:
+            elements.append(Paragraph(f"• {choice}", styles["Normal"]))
+        elements.append(Spacer(1, 12))
+    doc.build(elements)
+
+    # Teacher PDF (with answers)
     teacher_pdf = os.path.join(author_dir, f"teacher_{qcm_id}.pdf")
-    doc2 = SimpleDocTemplate(teacher_pdf)
-    elems = [Paragraph("QCM Prof – Corrigé", styles["Title"]), Spacer(1,12)]
-    for i, q in enumerate(qcm_list, start=1):
-        elems.append(Paragraph(f"{i}. {q['question']}", styles["Normal"]))
-        for c in q["choices"]:
-            mark = "✔" if c.startswith(q["answer"]) else "  "
-            elems.append(Paragraph(f"{mark} {c}", styles["Normal"]))
-        elems.append(Spacer(1,12))
-    doc2.build(elems)
+    doc = SimpleDocTemplate(teacher_pdf)
+    elements = [Paragraph("Answer Key", styles["Title"]), Spacer(1, 12)]
 
-    # 5) Envoi automatique du PDF prof
-    if TEACHER_EMAIL and SMTP_URL and SMTP_USER and SMTP_PASS:
+    for i, q in enumerate(qcm_list, 1):
+        elements.append(Paragraph(f"{i}. {q['question']}", styles["Normal"]))
+        for choice in q["choices"]:
+            mark = "✓" if choice.startswith(q["answer"]) else " "
+            elements.append(Paragraph(f"{mark} {choice}", styles["Normal"]))
+        elements.append(Spacer(1, 12))
+    doc.build(elements)
+
+    # Email to teacher
+    if all([TEACHER_EMAIL, SMTP_URL, SMTP_USER, SMTP_PASS]):
         send_pdf(
             TEACHER_EMAIL,
-            f"Nouveau QCM {qcm_id} par {author}",
-            "Veuillez trouver le corrigé en pièce jointe.",
+            f"New QCM from {author}",
+            f"QCM ID: {qcm_id}",
             teacher_pdf
         )
 
-    # 6) Retourne simplement l’ID du QCM
     return jsonify(qcm_id=qcm_id), 200
 
-@app.route("/get_qcm/<author>", methods=["GET"])
-def get_qcms(author):
-    author_dir = os.path.join(QCM_DIR, author)
-    if not os.path.isdir(author_dir):
-        return jsonify(qcms=[]), 200
-
-    out = []
-    for fname in sorted(os.listdir(author_dir), reverse=True):
-        if not fname.endswith(".pdf") and fname.endswith(".json"):
-            # si tu as dumpé un JSON, sinon adapte
-            path = os.path.join(author_dir, fname)
-            try:
-                data = json.load(open(path, "r", encoding="utf-8"))
-                out.append(data)
-            except:
-                continue
-    return jsonify(qcms=out), 200
-
 @app.route("/qcms/<path:filename>")
-def serve_qcm_file(filename):
+def serve_qcm(filename):
     return send_from_directory(QCM_DIR, filename)
 
 if __name__ == "__main__":
