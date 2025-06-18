@@ -1,21 +1,15 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import {QcmApiService} from '../services/qcm-api.service';
-import {FormsModule} from '@angular/forms';
-import {CommonModule} from '@angular/common';
+import { QcmApiService } from '../services/qcm-api.service';
 
 @Component({
   selector: 'app-qcm',
-  imports: [
-    FormsModule,
-    CommonModule
-  ],
-  templateUrl: './qcm.component.html'
+  templateUrl: './qcm.component.html',
+  styleUrls: ['./qcm.component.css']
 })
 export class QcmComponent implements OnInit {
   questions: any[] = [];
-  answers: any = {};
-  commitId: string = '';
+  qcmId: string = '';
 
   constructor(
     private route: ActivatedRoute,
@@ -23,15 +17,15 @@ export class QcmComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.commitId = this.route.snapshot.params['commitId'];
-    this.qcmApiService.getQcmForCommit(this.commitId).subscribe({
-      next: (data) => this.questions = data.questions,
-      error: () => alert('Erreur de chargement')
-    });
-  }
+    this.route.paramMap.subscribe(params => {
+      this.qcmId = params.get('qcmId') || '';
 
-  submit() {
-    this.qcmApiService.submitAnswers(this.commitId, this.answers)
-      .subscribe(() => alert('Réponses enregistrées!'));
+      if (this.qcmId) {
+        this.qcmApiService.getQcmForCommit(this.qcmId).subscribe({
+          next: (data) => this.questions = data.questions || [],
+          error: (err) => console.error('Erreur:', err)
+        });
+      }
+    });
   }
 }

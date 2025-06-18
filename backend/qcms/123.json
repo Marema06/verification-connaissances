@@ -1,0 +1,10 @@
+{
+  "questions": [
+    {
+      "question": "Exemple de question",
+      "choices": ["A. Réponse 1", "B. Réponse 2", "C. Réponse 3"],
+      "answer": "A",
+      "explanation": "Exemple d'explication"
+    }
+  ]
+}
