@@ -68,7 +68,3 @@ jobs:
       - name: Build Angular
         working-directory: frontend
         run: npm run build --if-present
-      - name: Clean Angular cache
-    run: |
-      rm -rf .angular/cache
-      rm -rf node_modules/.cache
