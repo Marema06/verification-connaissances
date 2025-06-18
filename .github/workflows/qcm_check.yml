@@ -68,18 +68,21 @@ jobs:
             fi
           done
 
-      # 5. Test d'intégration complet
+      # 5. Test d'intégration complet (sans jq)
       - name: Test QCM Generation
         run: |
           # Générer un QCM
-          RESPONSE=$(curl -s -X POST http://localhost:5000/generate_qcm \
+          echo "Envoi de la requête POST..."
+          curl -s -X POST http://localhost:5000/generate_qcm \
             -H "Content-Type: application/json" \
-            -d '{"code":"def hello():\\n    print(\\"Hello World\\")"}')
+            -d '{"code":"def hello():\\n    print(\\"Hello World\\")"}' \
+            > response.json
 
-          echo "Response: $RESPONSE"
+          echo "Réponse:"
+          cat response.json
 
-          # Extraire l'ID du QCM
-          QCM_ID=$(echo $RESPONSE | jq -r '.qcm_id')
+          # Extraire l'ID avec Python
+          QCM_ID=$(python -c "import json; f=open('response.json'); data=json.load(f); print(data.get('qcm_id', ''))")
 
           if [ -z "$QCM_ID" ]; then
             echo "Erreur: Aucun QCM_ID reçu"
@@ -89,10 +92,12 @@ jobs:
           echo "QCM ID: $QCM_ID"
 
           # Récupérer le QCM
-          curl -s http://localhost:5000/qcm/$QCM_ID | jq .
+          curl -s http://localhost:5000/qcm/$QCM_ID > qcm.json
+          echo "QCM récupéré:"
+          cat qcm.json
 
-          # Vérifier que des questions existent
-          QUESTION_COUNT=$(curl -s http://localhost:5000/qcm/$QCM_ID | jq '.questions | length')
+          # Vérifier les questions avec Python
+          QUESTION_COUNT=$(python -c "import json; f=open('qcm.json'); data=json.load(f); print(len(data.get('questions', [])))")
 
           if [ "$QUESTION_COUNT" -lt 1 ]; then
             echo "Erreur: Aucune question générée"
