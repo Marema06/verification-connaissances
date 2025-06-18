@@ -1,29 +1,44 @@
-<div *ngIf="!isLoading; else loading">
-  <h2>QCM</h2>
-  <form *ngIf="qcmData.length; else noQcm" (ngSubmit)="submit()">
-    <div *ngFor="let q of qcmData; let i = index" class="q-block">
-      <p><strong>{{ i+1 }}. {{ q.question }}</strong></p>
-      <div *ngFor="let c of q.choices">
+<div class="qcm-container">
+  <!-- Mode création -->
+  <div *ngIf="!qcmId" class="creation-mode">
+    <h2>Créer un nouveau QCM</h2>
+    <textarea [(ngModel)]="codeSnippet" placeholder="Collez votre code Python ici..."></textarea>
+    <button (click)="generateNewQcm()" [disabled]="isLoading">
+      {{ isLoading ? 'Génération...' : 'Générer QCM' }}
+    </button>
+    <p *ngIf="errorMessage" class="error">{{ errorMessage }}</p>
+  </div>
+
+  <!-- Mode réponse -->
+  <div *ngIf="qcmId && !isSubmitted" class="response-mode">
+    <h2>Questionnaire</h2>
+
+    <div class="student-info">
+      <input [(ngModel)]="studentName" placeholder="Votre nom" required>
+    </div>
+
+    <div *ngFor="let question of questions; let i = index" class="question">
+      <h3>{{ i + 1 }}. {{ question.question }}</h3>
+      <div *ngFor="let choice of question.choices; let j = index" class="choice">
         <label>
-          <input
-            type="radio"
-            name="q{{ i }}"
-            [value]="c.charAt(0)"
-            [(ngModel)]="answers[i]"
-            required
-          />
-          {{ c }}
+          <input type="radio"
+                 name="q{{i}}"
+                 [value]="j"
+                 (change)="selectAnswer(i, j.toString())">
+          {{ choice }}
         </label>
       </div>
     </div>
-    <button type="submit">Envoyer mes réponses</button>
-  </form>
-  <div *ngIf="feedback" class="feedback">{{ feedback }}</div>
-</div>
 
-<ng-template #loading>
-  <p>Chargement…</p>
-</ng-template>
-<ng-template #noQcm>
-  <p>Aucun QCM disponible.</p>
-</ng-template>
+    <button (click)="submitAnswers()" [disabled]="isLoading">
+      {{ isLoading ? 'Envoi en cours...' : 'Soumettre' }}
+    </button>
+  </div>
+
+  <!-- Confirmation -->
+  <div *ngIf="isSubmitted" class="confirmation">
+    <h2>Merci {{ studentName }} !</h2>
+    <p>Vos réponses ont été enregistrées.</p>
+    <p>Le professeur recevra une copie corrigée par email.</p>
+  </div>
+</div>

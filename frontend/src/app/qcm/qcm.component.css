@@ -1,9 +1,87 @@
-.question-block {
-  margin-bottom: 20px;
+.qcm-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
-.feedback {
-  margin-top: 20px;
-  font-weight: bold;
-  color: green;
+.creation-mode textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.student-info input {
+  width: 100%;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.question {
+  background: white;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.choice {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+.choice:hover {
+  background: #f0f0f0;
+}
+
+.choice label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.choice input {
+  margin-right: 0.8rem;
+}
+
+button {
+  background: #4a6baf;
+  color: white;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.3s;
+}
+
+button:hover {
+  background: #3a5a9f;
+}
+
+button:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #dc3545;
+  margin-top: 1rem;
+}
+
+.confirmation {
+  text-align: center;
+  padding: 2rem;
+  background: #e8f5e9;
+  border-radius: 8px;
+  margin-top: 1rem;
 }

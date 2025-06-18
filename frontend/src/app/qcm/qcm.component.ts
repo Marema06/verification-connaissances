@@ -1,51 +1,81 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
+import { QcmApiService, QcmItem, QcmResponse } from '../services/qcm-api.service';
 import { ActivatedRoute } from '@angular/router';
-import { QcmApiService, QcmItem } from '../services/qcm-api.service';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import {FormsModule} from '@angular/forms';
 
 @Component({
   selector: 'app-qcm',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
   templateUrl: './qcm.component.html',
+  imports: [
+    FormsModule
+  ],
+  styleUrls: ['./qcm.component.css']
 })
 export class QcmComponent implements OnInit {
-  private route = inject(ActivatedRoute);
-  private api   = inject(QcmApiService);
-
-  qcmData: QcmItem[] = [];
+  questions: QcmItem[] = [];
   answers: string[] = [];
-  feedback = '';
-  isLoading = true;
-  author!: string;
-  qcmId!: string;
+  studentName = '';
+  qcmId = '';
+  isLoading = false;
+  isSubmitted = false;
+  errorMessage = '';
+  codeSnippet = '';
 
-  ngOnInit() {
-    this.author = this.route.snapshot.paramMap.get('author')!;
-    this.qcmId  = this.route.snapshot.paramMap.get('qcmId')!;
-    this.api.getQcmsByAuthor(this.author).subscribe({
-      next: res => {
-        const found = res.qcms.find(x => x.qcm_id === this.qcmId);
-        if (found) {
-          this.qcmData = found.qcm;
-          this.answers = Array(this.qcmData.length).fill('');
-        }
-        this.isLoading = false;
-      },
-      error: _ => {
-        this.feedback = 'Erreur chargement';
-        this.isLoading = false;
-      }
+  constructor(
+    private route: ActivatedRoute,
+    private qcmService: QcmApiService
+  ) {}
+
+  ngOnInit(): void {
+    this.route.params.subscribe(params => {
+      this.qcmId = params['qcmId'];
+      // Load existing QCM or initialize new one
     });
   }
 
-  submit() {
-    if (this.answers.includes('')) {
-      this.feedback = 'Merci de répondre à toutes les questions.';
+  generateNewQcm() {
+    if (!this.codeSnippet.trim()) {
+      this.errorMessage = 'Veuillez entrer du code';
       return;
     }
-    this.api.submitAnswers(this.author, this.qcmId, this.answers)
-      .subscribe(() => this.feedback = 'Réponses enregistrées !');
+
+    this.isLoading = true;
+    this.qcmService.generateQcm(this.codeSnippet, 'angular-user')
+      .subscribe({
+        next: (response) => {
+          this.questions = response.questions;
+          this.answers = new Array(response.questions.length).fill('');
+          this.qcmId = response.qcm_id;
+          this.isLoading = false;
+        },
+        error: (err) => {
+          this.errorMessage = 'Erreur lors de la génération';
+          this.isLoading = false;
+        }
+      });
+  }
+
+  selectAnswer(questionIndex: number, choiceIndex: string) {
+    this.answers[questionIndex] = choiceIndex;
+  }
+
+  submitAnswers() {
+    if (!this.studentName || this.answers.some(a => a === undefined)) {
+      this.errorMessage = 'Veuillez compléter toutes les réponses et indiquer votre nom';
+      return;
+    }
+
+    this.isLoading = true;
+    this.qcmService.submitAnswers(this.qcmId, this.answers, this.studentName)
+      .subscribe({
+        next: () => {
+          this.isSubmitted = true;
+          this.isLoading = false;
+        },
+        error: (err) => {
+          this.errorMessage = 'Erreur lors de la soumission';
+          this.isLoading = false;
+        }
+      });
   }
 }

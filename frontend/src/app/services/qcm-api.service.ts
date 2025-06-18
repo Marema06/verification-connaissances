@@ -6,11 +6,13 @@ export interface QcmItem {
   question: string;
   choices: string[];
   answer: string;
+  explanation?: string;
 }
 
 export interface QcmResponse {
   qcm_id: string;
-  qcm: QcmItem[];
+  questions: QcmItem[];
+  pdf_url?: string;
 }
 
 @Injectable({
@@ -19,26 +21,24 @@ export interface QcmResponse {
 export class QcmApiService {
   private apiUrl = 'http://localhost:5000';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
-  // Récupère tous les QCM générés pour un auteur
-  getQcmsByAuthor(author: string): Observable<{ qcms: QcmResponse[] }> {
-    return this.http.get<{ qcms: QcmResponse[] }>(`${this.apiUrl}/get_qcm/${author}`);
+  generateQcm(code: string, author: string): Observable<QcmResponse> {
+    return this.http.post<QcmResponse>(`${this.apiUrl}/generate_qcm`, {
+      code_block: code,
+      author: author
+    });
   }
 
-  // Soumet les réponses d’un étudiant
-  submitAnswers(author: string, qcmId: string, answers: string[]): Observable<{ status: string; message: string }> {
-    return this.http.post<{ status: string; message: string }>(`${this.apiUrl}/submit_answers`, {
-      author,
+  submitAnswers(qcmId: string, answers: string[], studentName: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/submit_answers`, {
       qcm_id: qcmId,
-      answers
+      answers: answers,
+      student_name: studentName
     });
   }
 
-  // Génère un PDF pour les enseignants (optionnel)
-  generateTeacherPdf(qcmId: string): Observable<{ pdf_url: string }> {
-    return this.http.post<{ pdf_url: string }>(`${this.apiUrl}/generate_teacher_pdf`, {
-      qcm_id: qcmId
-    });
+  getQcmPdfUrl(qcmId: string, author: string): string {
+    return `${this.apiUrl}/qcms/${author}/student_${qcmId}.pdf`;
   }
 }
