@@ -1,3 +1,10 @@
+name: CI with Ollama (CPU Mode)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
 jobs:
   build-and-test:
     runs-on: ubuntu-22.04
