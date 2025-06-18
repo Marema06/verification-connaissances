@@ -1,37 +1,29 @@
-<div class="container" *ngIf="!isLoading; else loading">
-  <h2>QCM : {{ author }} / {{ qcmId }}</h2>
-
-  <div *ngIf="qcmData.length > 0; else noQcm">
-    <form (ngSubmit)="submit()">
-      <div *ngFor="let q of qcmData; let i = index" class="question-block">
-        <p><strong>{{ i + 1 }}. {{ q.question }}</strong></p>
-        <div *ngFor="let choice of q.choices">
-          <label>
-            <input
-              type="radio"
-              name="q{{ i }}"
-              [value]="choice.charAt(0)"
-              [(ngModel)]="answers[i]"
-              required
-            />
-            {{ choice }}
-          </label>
-        </div>
+<div *ngIf="!isLoading; else loading">
+  <h2>QCM</h2>
+  <form *ngIf="qcmData.length; else noQcm" (ngSubmit)="submit()">
+    <div *ngFor="let q of qcmData; let i = index" class="q-block">
+      <p><strong>{{ i+1 }}. {{ q.question }}</strong></p>
+      <div *ngFor="let c of q.choices">
+        <label>
+          <input
+            type="radio"
+            name="q{{ i }}"
+            [value]="c.charAt(0)"
+            [(ngModel)]="answers[i]"
+            required
+          />
+          {{ c }}
+        </label>
       </div>
-      <button type="submit">Soumettre</button>
-    </form>
-
-    <div *ngIf="feedback" class="feedback">{{ feedback }}</div>
-
-    <button (click)="downloadPdf()">Télécharger PDF Professeur</button>
-    <a *ngIf="pdfUrl" [href]="pdfUrl" target="_blank">Voir le PDF</a>
-  </div>
-
-  <ng-template #noQcm>
-    <p>Aucun QCM à afficher pour {{ author }}/{{ qcmId }}.</p>
-  </ng-template>
+    </div>
+    <button type="submit">Envoyer mes réponses</button>
+  </form>
+  <div *ngIf="feedback" class="feedback">{{ feedback }}</div>
 </div>
 
 <ng-template #loading>
-  <p>Chargement du QCM…</p>
+  <p>Chargement…</p>
+</ng-template>
+<ng-template #noQcm>
+  <p>Aucun QCM disponible.</p>
 </ng-template>
