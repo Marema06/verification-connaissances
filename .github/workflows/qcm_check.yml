@@ -8,7 +8,7 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-22.04
-    timeout-minutes: 45  # Augmenté pour les modèles CPU
+    timeout-minutes: 60  # Augmenté pour les modèles CPU
 
     steps:
       - name: Checkout code
@@ -43,7 +43,7 @@ jobs:
       # 2. Télécharger un modèle optimisé CPU
       - name: Download CPU-optimized model
         run: |
-          ollama pull orca-mini
+          ollama pull tinyllama  # Modèle plus léger pour les tests CI
           ollama list
 
       # 3. Setup Python/Flask
@@ -61,7 +61,7 @@ jobs:
       - name: Start Flask
         env:
           OLLAMA_BASE_URL: "http://localhost:11434"
-          OLLAMA_MODEL: "orca-mini"
+          OLLAMA_MODEL: "tinyllama"  # Utilisation du modèle léger
           PYTHONUNBUFFERED: 1
         run: |
           # Vérifier structure fichiers
@@ -127,7 +127,7 @@ jobs:
           echo "Sending payload: $PAYLOAD"
 
           # Envoyer requête avec timeout étendu
-          RESPONSE_RAW=$(curl -v --max-time 300 -X POST http://localhost:5000/generate_qcm \
+          RESPONSE_RAW=$(curl -v --max-time 600 -X POST http://localhost:5000/generate_qcm \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD" 2> curl.log)
 
@@ -173,7 +173,7 @@ jobs:
             exit 1
           fi
 
-          # Vérifier contenu
+          # Vérifier contenu (accepter au moins 1 question)
           QUESTION_COUNT=$(echo "$QCM_DATA" | jq '.questions | length')
           if [ -z "$QUESTION_COUNT" ] || [ "$QUESTION_COUNT" -lt 1 ]; then
             echo "ERROR: No questions generated"

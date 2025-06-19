@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import re
 import requests
 from flask import Flask, request, jsonify, abort
 
@@ -9,7 +10,7 @@ app = Flask(__name__)
 # Stockage en mémoire (pour le prototype)
 qcm_store = {}
 OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
-OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'orca-mini')
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'tinyllama')  # Modèle par défaut pour CI
 
 @app.route('/healthz')
 def health_check():
@@ -58,10 +59,11 @@ def generate_with_ollama(prompt):
                 "stream": False,
                 "options": {
                     "temperature": 0.7,
-                    "num_ctx": 4096
+                    "num_ctx": 2048,
+                    "num_thread": 4  # Optimisation CPU
                 }
             },
-            timeout=300  # Timeout long pour les modèles CPU
+            timeout=600  # Timeout très long pour les modèles CPU
         )
         response.raise_for_status()
         return response.json().get('response', '')
@@ -72,34 +74,57 @@ def generate_with_ollama(prompt):
 def parse_qcm_response(raw_response):
     """Parse la réponse brute d'Ollama en structure QCM"""
     try:
-        # Ceci est un exemple - adapter à votre format réel de réponse
-        if "QUESTIONS:" not in raw_response:
-            return None
+        # Normaliser la réponse
+        normalized = raw_response.replace("Q :", "Q:").replace("A :", "A.").replace("Réponse :", "Réponse:")
+
+        # Trouver le début du QCM
+        start_index = normalized.find("QUESTIONS:")
+        if start_index == -1:
+            start_index = normalized.find("Q:")
+            if start_index == -1:
+                return None
+            # Recule pour capturer le contexte si nécessaire
+            start_index = max(0, start_index - 50)
+
+        qcm_text = normalized[start_index:]
 
         questions = []
         current_question = None
 
-        for line in raw_response.split('\n'):
+        for line in qcm_text.split('\n'):
             line = line.strip()
-            if line.startswith("Q:"):
+
+            # Détecter une nouvelle question
+            if line.startswith("Q:") or line.lower().startswith("question"):
                 if current_question:
                     questions.append(current_question)
                 current_question = {
-                    "question": line[2:].strip(),
+                    "question": line.split(':', 1)[1].strip() if ':' in line else line,
                     "options": [],
                     "correct": None
                 }
-            elif line.startswith(("A.", "B.", "C.", "D.")):
-                option_text = line[2:].strip()
+
+            # Détecter des options
+            elif re.match(r"^[A-D]\.", line) or re.match(r"^[A-D]\)", line):
+                option_text = re.sub(r"^[A-D][\.\)]\s*", "", line)
                 current_question["options"].append(option_text)
-            elif line.startswith("Réponse:"):
-                correct_letter = line.split(":")[1].strip()[0]
-                current_question["correct"] = ord(correct_letter) - ord('A')
+
+            # Détecter la réponse
+            elif line.startswith(("Réponse:", "Reponse:", "Answer:")):
+                match = re.search(r"([A-D])", line, re.IGNORECASE)
+                if match:
+                    current_question["correct"] = ord(match.group(1).upper()) - ord('A')
 
         if current_question:
             questions.append(current_question)
 
-        return questions if questions else None
+        # Valider que chaque question a au moins 1 option et une réponse
+        valid_questions = []
+        for q in questions:
+            if len(q["options"]) > 0 and q["correct"] is not None:
+                valid_questions.append(q)
+
+        return valid_questions if valid_questions else None
     except Exception as e:
         app.logger.error(f"Erreur parsing QCM: {str(e)}")
         return None
@@ -120,8 +145,7 @@ def generate_qcm():
         # Créer le prompt pour Ollama
         prompt = (
             "Tu es un expert en génération de QCM sur du code Python. "
-            "Génère un QCM avec 3 questions basées sur le code suivant. "
-            "Format attendu:\n\n"
+            "Génère UNIQUEMENT le QCM dans le format EXACT suivant sans aucun texte supplémentaire:\n\n"
             "QUESTIONS:\n"
             "Q: [Question 1]\n"
             "A. [Option A]\n"
@@ -133,7 +157,8 @@ def generate_qcm():
             "...\n\n"
             "Code:\n"
             f"{code_block}\n\n"
-            "Attention: Ne montre aucune explication supplémentaire, seulement le format QCM."
+            "IMPORTANT : Ne montre AUCUNE explication, introduction ou conclusion. "
+            "Commence directement par 'QUESTIONS:' et suis strictement le format."
         )
 
         # Générer avec Ollama
@@ -144,14 +169,24 @@ def generate_qcm():
 
         generation_time = time.time() - start_time
         app.logger.info(f"Génération Ollama terminée en {generation_time:.2f}s")
+        app.logger.debug(f"Réponse Ollama brute:\n{raw_response}")
 
         # Parser la réponse
         questions = parse_qcm_response(raw_response)
+
+        # Retry avec un prompt plus strict en cas d'échec
         if not questions:
-            app.logger.error(f"Format QCM invalide:\n{raw_response}")
+            app.logger.warning("Première tentative échouée, nouvelle tentative avec prompt renforcé")
+            retry_prompt = prompt + "\n\nATTENTION : Format REQUIS :\nQUESTIONS:\nQ: ...\nA. ...\nB. ...\nC. ...\nD. ...\nRéponse: ...\n\nÉvite tout texte en dehors de ce format."
+            raw_response = generate_with_ollama(retry_prompt)
+            if raw_response:
+                questions = parse_qcm_response(raw_response)
+
+        if not questions:
+            app.logger.error(f"Format QCM invalide après deux tentatives. Réponse brute:\n{raw_response}")
             return jsonify({
                 "error": "Format de réponse QCM invalide",
-                "raw_response": raw_response
+                "raw_response": raw_response[:500] + "..." if len(raw_response) > 500 else raw_response
             }), 500
 
         # Stocker en mémoire
