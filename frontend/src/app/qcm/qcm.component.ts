@@ -29,10 +29,12 @@ export class QcmComponent implements OnInit {
 
   ngOnInit() {
     this.route.paramMap.subscribe(params => {
-      this.qcmId = params.get('qcmId') || '';
+      const author = params.get('author') ?? undefined;
+      const qcmId = params.get('qcmId');
 
-      if (this.qcmId) {
-        this.loadQcm();
+      if (qcmId) {
+        this.qcmId = qcmId;
+        this.loadQcm(author);  // on passe l'auteur si disponible
       } else {
         this.errorMessage = 'ID de QCM manquant dans l\'URL';
         this.isLoading = false;
@@ -40,8 +42,12 @@ export class QcmComponent implements OnInit {
     });
   }
 
-  loadQcm() {
-    this.http.get<any>(`http://localhost:5000/qcm/${this.qcmId}`)
+  loadQcm(author?: string) {
+    let url = author
+      ? `http://localhost:5000/qcm/${author}/${this.qcmId}`
+      : `http://localhost:5000/qcm/${this.qcmId}`;
+
+    this.http.get<any>(url)
       .pipe(
         catchError(err => {
           this.isLoading = false;
@@ -59,6 +65,7 @@ export class QcmComponent implements OnInit {
         }
       });
   }
+
 
   submitAnswers() {
     this.isSubmitted = true;
