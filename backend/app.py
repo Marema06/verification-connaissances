@@ -1,231 +1,113 @@
 import os
-import time
 import json
 import re
+import datetime
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
 import requests
-from flask import Flask, request, jsonify, abort
 
 app = Flask(__name__)
+CORS(app)  # Autorise toutes les origines
 
-# Stockage en mémoire (pour le prototype)
-qcm_store = {}
-OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
-OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'tinyllama')  # Modèle par défaut pour CI
+# Configuration de l'URL de l'API Ollama locale
+OLLAMA_API_URL = "http://localhost:11434/api/generate"
 
-@app.route('/healthz')
-def health_check():
-    """Endpoint de santé simplifié"""
-    return "OK", 200
+# Répertoire où enregistrer les QCM
+QCM_FOLDER = "qcms"
 
-@app.route('/debug')
-def debug_connection():
-    """Endpoint de débogage pour vérifier les connexions"""
-    try:
-        # Vérifier la connexion à Ollama
-        ollama_url = f"{OLLAMA_BASE_URL}/api/tags"
-        start_time = time.time()
-        ollama_response = requests.get(ollama_url, timeout=30)
-        ollama_time = time.time() - start_time
+# Crée le dossier s’il n’existe pas
+os.makedirs(QCM_FOLDER, exist_ok=True)
 
-        return jsonify({
-            "status": "running",
-            "flask_port": 5000,
-            "ollama_connection": {
-                "url": ollama_url,
-                "status_code": ollama_response.status_code,
-                "response_time": f"{ollama_time:.2f}s",
-                "details": ollama_response.json() if ollama_response.status_code == 200 else ollama_response.text
-            },
-            "environment": {
-                "OLLAMA_BASE_URL": OLLAMA_BASE_URL,
-                "OLLAMA_MODEL": OLLAMA_MODEL
-            }
-        })
-    except Exception as e:
-        return jsonify({
-            "error": str(e),
-            "message": "Échec de la connexion à Ollama",
-            "ollama_url": ollama_url
-        }), 500
-
-def generate_with_ollama(prompt):
-    """Génère du texte avec Ollama en mode CPU"""
-    try:
-        response = requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json={
-                "model": OLLAMA_MODEL,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.7,
-                    "num_ctx": 2048,
-                    "num_thread": 4  # Optimisation CPU
-                }
-            },
-            timeout=600  # Timeout très long pour les modèles CPU
-        )
-        response.raise_for_status()
-        return response.json().get('response', '')
-    except Exception as e:
-        app.logger.error(f"Erreur Ollama: {str(e)}")
-        return None
-
-def parse_qcm_response(raw_response):
-    """Parse la réponse brute d'Ollama en structure QCM"""
-    try:
-        # Normaliser la réponse
-        normalized = raw_response.replace("Q :", "Q:").replace("A :", "A.").replace("Réponse :", "Réponse:")
-
-        # Trouver le début du QCM
-        start_index = normalized.find("QUESTIONS:")
-        if start_index == -1:
-            start_index = normalized.find("Q:")
-            if start_index == -1:
-                return None
-            # Recule pour capturer le contexte si nécessaire
-            start_index = max(0, start_index - 50)
-
-        qcm_text = normalized[start_index:]
-
-        questions = []
-        current_question = None
-
-        for line in qcm_text.split('\n'):
-            line = line.strip()
-
-            # Détecter une nouvelle question
-            if line.startswith("Q:") or line.lower().startswith("question"):
-                if current_question:
-                    questions.append(current_question)
-                current_question = {
-                    "question": line.split(':', 1)[1].strip() if ':' in line else line,
-                    "options": [],
-                    "correct": None
-                }
-
-            # Détecter des options
-            elif re.match(r"^[A-D]\.", line) or re.match(r"^[A-D]\)", line):
-                option_text = re.sub(r"^[A-D][\.\)]\s*", "", line)
-                current_question["options"].append(option_text)
-
-            # Détecter la réponse
-            elif line.startswith(("Réponse:", "Reponse:", "Answer:")):
-                match = re.search(r"([A-D])", line, re.IGNORECASE)
-                if match:
-                    current_question["correct"] = ord(match.group(1).upper()) - ord('A')
-
-        if current_question:
-            questions.append(current_question)
-
-        # Valider que chaque question a au moins 1 option et une réponse
-        valid_questions = []
-        for q in questions:
-            if len(q["options"]) > 0 and q["correct"] is not None:
-                valid_questions.append(q)
-
-        return valid_questions if valid_questions else None
-    except Exception as e:
-        app.logger.error(f"Erreur parsing QCM: {str(e)}")
-        return None
-
-@app.route('/generate_qcm', methods=['POST'])
+@app.route("/generate_qcm", methods=["POST"])
 def generate_qcm():
-    """Endpoint pour générer un QCM à partir d'un bloc de code"""
+    data = request.get_json()
+    code_block = data.get("code_block")
+    author = data.get("author", "anonymous")
+
+    if not code_block:
+        return jsonify({"error": "Le champ 'code_block' est requis."}), 400
+
+    prompt = f"""
+Tu es un assistant pédagogique. Génère un QCM au **format JSON strict** à partir du code suivant.
+Le format **doit être uniquement** :
+
+{{
+  "questions": [
+    {{
+      "question": "....",
+      "choices": ["...", "...", "..."],
+      "answer": 0
+    }}
+  ]
+}}
+
+Ne donne **aucune explication** autour. Juste ce JSON.
+
+Voici le code :
+{code_block}
+"""
+
     try:
-        data = request.get_json()
-        code_block = data.get('code', '')
-        author = data.get('author', 'anonymous')
-
-        if not code_block:
-            return jsonify({"error": "Le bloc de code est requis"}), 400
-
-        app.logger.info(f"Génération QCM pour le code:\n{code_block[:200]}...")
-
-        # Créer le prompt pour Ollama
-        prompt = (
-            "Tu es un expert en génération de QCM sur du code Python. "
-            "Génère UNIQUEMENT le QCM dans le format EXACT suivant sans aucun texte supplémentaire:\n\n"
-            "QUESTIONS:\n"
-            "Q: [Question 1]\n"
-            "A. [Option A]\n"
-            "B. [Option B]\n"
-            "C. [Option C]\n"
-            "D. [Option D]\n"
-            "Réponse: [Lettre correcte]\n\n"
-            "Q: [Question 2]\n"
-            "...\n\n"
-            "Code:\n"
-            f"{code_block}\n\n"
-            "IMPORTANT : Ne montre AUCUNE explication, introduction ou conclusion. "
-            "Commence directement par 'QUESTIONS:' et suis strictement le format."
+        # Appel à Ollama
+        response = requests.post(
+            OLLAMA_API_URL,
+            json={"model": "llama2", "prompt": prompt, "stream": False}
         )
+        result = response.json()
+        generated = result.get("response", "")
 
-        # Générer avec Ollama
-        start_time = time.time()
-        raw_response = generate_with_ollama(prompt)
-        if raw_response is None:
-            return jsonify({"error": "Échec de la génération avec Ollama"}), 500
-
-        generation_time = time.time() - start_time
-        app.logger.info(f"Génération Ollama terminée en {generation_time:.2f}s")
-        app.logger.debug(f"Réponse Ollama brute:\n{raw_response}")
-
-        # Parser la réponse
-        questions = parse_qcm_response(raw_response)
-
-        # Retry avec un prompt plus strict en cas d'échec
-        if not questions:
-            app.logger.warning("Première tentative échouée, nouvelle tentative avec prompt renforcé")
-            retry_prompt = prompt + "\n\nATTENTION : Format REQUIS :\nQUESTIONS:\nQ: ...\nA. ...\nB. ...\nC. ...\nD. ...\nRéponse: ...\n\nÉvite tout texte en dehors de ce format."
-            raw_response = generate_with_ollama(retry_prompt)
-            if raw_response:
-                questions = parse_qcm_response(raw_response)
-
-        if not questions:
-            app.logger.error(f"Format QCM invalide après deux tentatives. Réponse brute:\n{raw_response}")
+        # Extraction du vrai JSON
+        match = re.search(r"{[\s\S]*}", generated)
+        if not match:
             return jsonify({
-                "error": "Format de réponse QCM invalide",
-                "raw_response": raw_response[:500] + "..." if len(raw_response) > 500 else raw_response
+                "error": "Erreur de parsing du JSON généré par Ollama",
+                "details": generated
             }), 500
 
-        # Stocker en mémoire
-        qcm_id = f"qcm_{int(time.time())}"
-        qcm_store[qcm_id] = {
-            "id": qcm_id,
-            "author": author,
-            "code_snippet": code_block[:500],  # Stocker un extrait
-            "generation_time": generation_time,
-            "questions": questions,
-            "created_at": time.strftime("%Y-%m-%d %H:%M:%S")
-        }
+        qcm_data = json.loads(match.group())
+
+        # Création du dossier de l'auteur
+        author_folder = os.path.join(QCM_FOLDER, author)
+        os.makedirs(author_folder, exist_ok=True)
+
+        # Enregistrement du fichier
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        file_path = os.path.join(author_folder, f"qcm_{timestamp}.json")
+        with open(file_path, "w") as f:
+            json.dump(qcm_data, f, indent=2)
 
         return jsonify({
-            "qcm_id": qcm_id,
-            "message": f"QCM généré avec succès en {generation_time:.2f} secondes",
-            "question_count": len(questions)
-        })
+            "message": "QCM généré et enregistré avec succès",
+            "path": file_path,
+            "qcm": qcm_data
+        }), 200
 
     except Exception as e:
-        app.logger.exception("Erreur dans generate_qcm")
         return jsonify({
-            "error": "Erreur interne du serveur",
+            "error": "Erreur lors de la génération du QCM",
             "details": str(e)
         }), 500
+@app.route("/get_qcm/<author>", methods=["GET"])
+def get_qcm(author):
+    author_folder = os.path.join(QCM_FOLDER, author)
+    if not os.path.exists(author_folder):
+        return jsonify({"error": f"Aucun QCM trouvé pour l'auteur {author}"}), 404
 
-@app.route('/qcm/<qcm_id>')
-def get_qcm(qcm_id):
-    """Récupère un QCM généré par son ID"""
-    qcm = qcm_store.get(qcm_id)
-    if not qcm:
-        abort(404, description="QCM non trouvé")
+    qcm_list = []
+    for filename in os.listdir(author_folder):
+        if filename.endswith(".json"):
+            with open(os.path.join(author_folder, filename), "r") as f:
+                try:
+                    qcm = json.load(f)
+                    qcm_list.append(qcm)
+                except json.JSONDecodeError:
+                    continue
 
-    # Ne pas renvoyer le code complet pour économiser de la bande passante
-    response = {**qcm}
-    if "code_snippet" in response:
-        del response["code_snippet"]
+    if not qcm_list:
+        return jsonify({"error": "Aucun QCM valide trouvé."}), 404
 
-    return jsonify(response)
+    return jsonify(qcm_list), 200
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+if __name__ == "__main__":
+    app.run(debug=True)

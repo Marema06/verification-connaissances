@@ -8,13 +8,13 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-22.04
-    timeout-minutes: 60  # Augmenté pour les modèles CPU
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Installer Ollama en mode CPU
+      # 1. Installer Ollama (mode CPU)
       - name: Install Ollama (CPU Mode)
         run: |
           curl -fsSL https://ollama.com/install.sh | OLLAMA_NOBLAS=1 sh
@@ -24,7 +24,6 @@ jobs:
           nohup ollama serve > ollama.log 2>&1 &
           echo $! > ollama.pid
 
-          # Vérification démarrage Ollama
           for i in {1..20}; do
             if curl -s localhost:11434 >/dev/null; then
               echo "Ollama ready after $i attempts"
@@ -40,13 +39,13 @@ jobs:
             exit 1
           fi
 
-      # 2. Télécharger un modèle optimisé CPU
+      # 2. Télécharger modèle
       - name: Download CPU-optimized model
         run: |
-          ollama pull tinyllama  # Modèle plus léger pour les tests CI
+          ollama pull tinyllama
           ollama list
 
-      # 3. Setup Python/Flask
+      # 3. Setup Python / Flask
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -57,49 +56,39 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt gunicorn
 
-      # 4. Démarrer Flask avec point d'entrée backend/
+      # 4. Démarrer Flask backend
       - name: Start Flask
         env:
           OLLAMA_BASE_URL: "http://localhost:11434"
-          OLLAMA_MODEL: "tinyllama"  # Utilisation du modèle léger
+          OLLAMA_MODEL: "tinyllama"
           PYTHONUNBUFFERED: 1
         run: |
-          # Vérifier structure fichiers
-          echo "Project structure:"
-          ls -la
-
-          # Démarrer Gunicorn
           echo "Starting Flask with entrypoint: backend.app:app"
           nohup gunicorn --timeout 600 --bind 0.0.0.0:5000 --workers 1 --log-level debug backend.app:app > flask.log 2>&1 &
           echo $! > flask.pid
 
-          # Vérification démarrage Flask
           for i in {1..30}; do
-            # Vérifier processus
             if ! ps -p $(cat flask.pid) > /dev/null; then
               echo "ERROR: Flask process died"
               cat flask.log
               exit 1
             fi
 
-            # Vérifier endpoint healthz
             if curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/healthz | grep -q 200; then
               echo "Flask ready after $i seconds"
               break
             fi
-
             echo "Waiting for Flask ($i/30)..."
             sleep 2
           done
 
           if [ $i -eq 30 ]; then
             echo "ERROR: Flask startup timeout"
-            echo "=== Flask Log ==="
             cat flask.log
             exit 1
           fi
 
-      # 5. Vérification des connections
+      # 5. Vérifier connexions
       - name: Verify Connections
         run: |
           echo "=== Active Processes ==="
@@ -111,32 +100,48 @@ jobs:
           echo "=== Flask Debug Endpoint ==="
           curl -v http://localhost:5000/debug || echo "Debug endpoint failed"
 
+      # 🆕 6. Détecter les fichiers modifiés
+      - name: Detect modified code files
+        id: detect-changes
+        run: |
+          git fetch origin main
+          FILES=$(git diff --name-only origin/main HEAD | grep -E '\.py$|\.ts$|\.js$' || true)
+          echo "files=$FILES" >> $GITHUB_OUTPUT
 
-      # 7. Cleanup
+      # 🆕 7. Envoyer fichiers au backend Flask pour générer les QCM
+      - name: Generate QCMs with Flask
+        if: steps.detect-changes.outputs.files != ''
+        run: |
+          for file in ${{ steps.detect-changes.outputs.files }}; do
+            echo "Sending $file to Flask backend..."
+            CONTENT=$(cat $file | jq -Rs .)
+            curl -X POST http://localhost:5000/generate_qcm \
+              -H "Content-Type: application/json" \
+              -d "{\"filename\": \"$file\", \"code_block\": $CONTENT, \"author\": \"etudiant1\"}"
+          done
+
+      # 8. Stopper services
       - name: Stop services
         if: always()
         run: |
           echo "=== Cleaning up ==="
 
-          # Arrêter Flask
           if [ -f flask.pid ]; then
             echo "Stopping Flask..."
             kill -9 $(cat flask.pid) 2>/dev/null || true
             rm -f flask.pid
           fi
 
-          # Arrêter Ollama
           if [ -f ollama.pid ]; then
             echo "Stopping Ollama..."
             kill -9 $(cat ollama.pid) 2>/dev/null || true
             rm -f ollama.pid
           fi
 
-          # Nettoyage processus
           pkill -f "ollama serve" 2>/dev/null || true
           pkill -f "gunicorn" 2>/dev/null || true
 
-      # 8. Upload logs for debugging
+      # 9. Upload logs pour debug
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -145,4 +150,3 @@ jobs:
           path: |
             ollama.log
             flask.log
-            curl.log

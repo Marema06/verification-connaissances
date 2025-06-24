@@ -1,51 +1,42 @@
-<div class="qcm-container">
-  <div *ngIf="isLoading" class="loading-state">
-    <p>Chargement du QCM en cours...</p>
+<div class="p-4 space-y-6">
+  <h2 class="text-2xl font-bold">QCM de {{ author }}</h2>
+
+  <div *ngIf="qcmList.length === 0">
+    Aucun QCM trouvé pour {{ author }}.
   </div>
 
-  <div *ngIf="errorMessage" class="error-state">
-    <p>{{ errorMessage }}</p>
-    <p>Vérifiez que l'URL contient un ID de QCM valide.</p>
-  </div>
+  <div *ngFor="let qcm of qcmList; let i = index" class="bg-white shadow-lg rounded-2xl p-4 space-y-4">
+    <h3 class="text-xl font-semibold">QCM {{ i + 1 }}</h3>
 
-  <div *ngIf="!isLoading && !errorMessage && questions.length > 0">
-    <h1>QCM Technique</h1>
-    <p class="qcm-id">ID: {{ qcmId }}</p>
-
-    <form (ngSubmit)="submitAnswers()">
-      <div *ngFor="let question of questions; let i = index" class="question-card">
-        <h3>Question {{i+1}}: {{question.question}}</h3>
-
-        <div *ngFor="let choice of question.choices" class="choice">
-          <label>
-            <input type="radio"
-                   [name]="'question_'+i"
-                   [value]="choice"
-                   [(ngModel)]="answers[i]">
-            {{choice}}
+    <form *ngIf="qcm.questions && qcm.questions.length > 0">
+      <div *ngFor="let question of qcm.questions; let j = index" class="mb-4">
+        <p class="font-medium">{{ question.question }}</p>
+        <div class="space-y-2 ml-4">
+          <label *ngFor="let choice of question.choices; let k = index" class="flex items-center space-x-2">
+            <input
+              type="radio"
+              [name]="'qcm' + i + '_q' + j"
+              [value]="k"
+              [(ngModel)]="userAnswers[i][j]"
+              [disabled]="submitted"
+              class="accent-blue-500"
+            />
+            <span>{{ choice }}</span>
           </label>
         </div>
-
-        <div *ngIf="isSubmitted" class="explanation">
-          <p>{{ getAnswerExplanation(question, answers[i]) }}</p>
-        </div>
       </div>
-
-      <button type="submit" class="submit-btn" *ngIf="!isSubmitted">
-        Valider les réponses
-      </button>
     </form>
 
-    <div *ngIf="isSubmitted" class="results">
-      <h2>Résultats</h2>
-      <p>Votre score: <strong>{{score}}/{{questions.length}}</strong></p>
-      <div class="progress-container">
-        <div class="progress-bar" [style.width.%]="(score || 0) / questions.length * 100"></div>
-      </div>
+    <div *ngIf="submitted" class="text-green-700 font-bold">
+      Score : {{ getScore(i) }} / {{ qcm.questions.length }}
     </div>
   </div>
 
-  <div *ngIf="!isLoading && !errorMessage && questions.length === 0" class="no-questions">
-    <p>Aucune question disponible pour ce QCM.</p>
-  </div>
+  <button
+    (click)="onSubmit()"
+    class="bg-blue-600 text-white px-4 py-2 rounded-xl shadow hover:bg-blue-700"
+    [disabled]="submitted || qcmList.length === 0"
+  >
+    Soumettre
+  </button>
 </div>
