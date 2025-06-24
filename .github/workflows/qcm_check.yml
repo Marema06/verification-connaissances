@@ -14,7 +14,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Installer Ollama (mode CPU)
+      # 1. Installer Ollama (CPU)
       - name: Install Ollama (CPU Mode)
         run: |
           curl -fsSL https://ollama.com/install.sh | OLLAMA_NOBLAS=1 sh
@@ -100,15 +100,21 @@ jobs:
           echo "=== Flask Debug Endpoint ==="
           curl -v http://localhost:5000/debug || echo "Debug endpoint failed"
 
-      # 🆕 6. Détecter les fichiers modifiés
+      # ✅ 6. Détecter les fichiers modifiés (corrigé)
       - name: Detect modified code files
         id: detect-changes
         run: |
           git fetch origin main
           FILES=$(git diff --name-only origin/main HEAD | grep -E '\.py$|\.ts$|\.js$' || true)
-          echo "files=$FILES" >> $GITHUB_OUTPUT
+          FILES_CLEAN=$(echo "$FILES" | tr '\n' ' ' | xargs)
+          echo "Modified files: $FILES_CLEAN"
+          echo "files=$FILES_CLEAN" >> $GITHUB_OUTPUT
 
-      # 🆕 7. Envoyer fichiers au backend Flask pour générer les QCM
+      # 🔍 7. Debug temporaire pour vérifier que la variable est bien transmise
+      - name: Debug detected files
+        run: echo "Files detected: ${{ steps.detect-changes.outputs.files }}"
+
+      # 8. Envoyer fichiers au backend Flask pour générer les QCM
       - name: Generate QCMs with Flask
         if: steps.detect-changes.outputs.files != ''
         run: |
@@ -120,7 +126,7 @@ jobs:
               -d "{\"filename\": \"$file\", \"code_block\": $CONTENT, \"author\": \"etudiant1\"}"
           done
 
-      # 8. Stopper services
+      # 9. Stopper services
       - name: Stop services
         if: always()
         run: |
@@ -141,7 +147,7 @@ jobs:
           pkill -f "ollama serve" 2>/dev/null || true
           pkill -f "gunicorn" 2>/dev/null || true
 
-      # 9. Upload logs pour debug
+      # 10. Upload logs pour debug
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
