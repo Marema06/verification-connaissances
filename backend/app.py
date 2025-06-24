@@ -88,6 +88,7 @@ Voici le code :
             "error": "Erreur lors de la génération du QCM",
             "details": str(e)
         }), 500
+
 @app.route("/get_qcm/<author>", methods=["GET"])
 def get_qcm(author):
     author_folder = os.path.join(QCM_FOLDER, author)
@@ -108,6 +109,10 @@ def get_qcm(author):
         return jsonify({"error": "Aucun QCM valide trouvé."}), 404
 
     return jsonify(qcm_list), 200
+
+@app.route("/healthz", methods=["GET"])
+def health_check():
+    return jsonify({"status": "ok"}), 200
 
 if __name__ == "__main__":
     app.run(debug=True)
