@@ -54,17 +54,20 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt gunicorn
+          pip install -r requirements.txt
 
-      # 4. Démarrer Flask backend
-      - name: Start Flask
+      # 4. Démarrer Flask backend sans gunicorn
+      - name: Start Flask (dev mode, sans gunicorn)
         env:
           OLLAMA_BASE_URL: "http://localhost:11434"
           OLLAMA_MODEL: "tinyllama"
+          FLASK_APP: backend/app.py
+          FLASK_RUN_HOST: 0.0.0.0
+          FLASK_RUN_PORT: 5000
           PYTHONUNBUFFERED: 1
         run: |
-          echo "Starting Flask with entrypoint: backend.app:app"
-          nohup gunicorn --timeout 600 --bind 0.0.0.0:5000 --workers 1 --log-level debug backend.app:app > flask.log 2>&1 &
+          echo "Starting Flask in background..."
+          nohup python -m flask run > flask.log 2>&1 &
           echo $! > flask.pid
 
           for i in {1..30}; do
@@ -92,7 +95,7 @@ jobs:
       - name: Verify Connections
         run: |
           echo "=== Active Processes ==="
-          ps aux | grep -E 'ollama|gunicorn'
+          ps aux | grep -E 'ollama|flask'
 
           echo "=== Ollama Status ==="
           curl -v http://localhost:11434/api/tags || echo "Ollama check failed"
@@ -100,7 +103,7 @@ jobs:
           echo "=== Flask Debug Endpoint ==="
           curl -v http://localhost:5000/debug || echo "Debug endpoint failed"
 
-      # ✅ 6. Détecter les fichiers modifiés (corrigé)
+      # 6. Détecter les fichiers modifiés
       - name: Detect modified code files
         id: detect-changes
         run: |
@@ -110,7 +113,7 @@ jobs:
           echo "Modified files: $FILES_CLEAN"
           echo "files=$FILES_CLEAN" >> $GITHUB_OUTPUT
 
-      # 🔍 7. Debug temporaire pour vérifier que la variable est bien transmise
+      # 7. Debug temporaire pour afficher la variable
       - name: Debug detected files
         run: |
           echo "Files detected:"
@@ -128,7 +131,7 @@ jobs:
               -d "{\"filename\": \"$file\", \"code_block\": $CONTENT, \"author\": \"etudiant1\"}"
           done
 
-      # 9. Stopper services
+      # 9. Stopper les services
       - name: Stop services
         if: always()
         run: |
@@ -147,7 +150,7 @@ jobs:
           fi
 
           pkill -f "ollama serve" 2>/dev/null || true
-          pkill -f "gunicorn" 2>/dev/null || true
+          pkill -f "flask" 2>/dev/null || true
 
       # 10. Upload logs pour debug
       - name: Upload logs
