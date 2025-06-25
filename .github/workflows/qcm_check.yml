@@ -112,7 +112,9 @@ jobs:
 
       # 🔍 7. Debug temporaire pour vérifier que la variable est bien transmise
       - name: Debug detected files
-        run: echo "Files detected: ${{ steps.detect-changes.outputs.files }}"
+        run: |
+          echo "Files detected:"
+          echo "${{ steps.detect-changes.outputs.files }}"
 
       # 8. Envoyer fichiers au backend Flask pour générer les QCM
       - name: Generate QCMs with Flask
