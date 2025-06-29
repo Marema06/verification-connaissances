@@ -129,7 +129,20 @@ def submit_answers():
     save_data(db)
 
     return jsonify({"status": "Réponses reçues avec succès !"})
-
+# 🧑‍🏫 Route : Accès prof – Voir toutes les réponses
+@app.route("/all_responses")
+def all_responses():
+    db = load_data()
+    results = []
+    for r in db['responses']:
+        qcm = db['qcms'].get(r['qcm_id'], {})
+        results.append({
+            "student_name": r["student_name"],
+            "qcm_id": r["qcm_id"],
+            "questions": qcm.get("questions", []),
+            "answers": r["answers"]
+        })
+    return jsonify(results)
 @app.route("/healthz")
 def health():
     return jsonify({"status": "ok"})
