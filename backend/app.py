@@ -1,118 +1,147 @@
-import os
-import json
-import re
-import datetime
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+import uuid
+import json
+import os
 
-import requests
+app = Flask(__name__, static_folder="dist")
+CORS(app)
 
-app = Flask(__name__)
-CORS(app)  # Autorise toutes les origines
+DATA_FILE = "qcm_data.json"
 
-# Configuration de l'URL de l'API Ollama locale
-OLLAMA_API_URL = "http://localhost:11434/api/generate"
+# Chargement et sauvegarde des données
+def load_data():
+    if not os.path.exists(DATA_FILE):
+        return {"qcms": {}, "responses": []}
+    with open(DATA_FILE, "r") as f:
+        return json.load(f)
 
-# Répertoire où enregistrer les QCM
-QCM_FOLDER = "qcms"
+def save_data(data):
+    with open(DATA_FILE, "w") as f:
+        json.dump(data, f, indent=2)
 
-# Crée le dossier s’il n’existe pas
-os.makedirs(QCM_FOLDER, exist_ok=True)
+# Générateur de QCM simulé avec 10 questions
+def fake_qcm_generator(code_block: str):
+    return [
+        {
+            "question": "Que fait ce code ?",
+            "choices": ["A. Additionne deux nombres", "B. Multiplie deux nombres", "C. Crée une chaîne"],
+            "answer": "A",
+            "explanation": "Le code additionne deux nombres via return a + b"
+        },
+        {
+            "question": "Quelle est la sortie de la fonction si a = 2 et b = 3 ?",
+            "choices": ["A. 5", "B. 6", "C. 23"],
+            "answer": "A",
+            "explanation": "2 + 3 = 5"
+        },
+        {
+            "question": "Quel est le type de retour de la fonction ?",
+            "choices": ["A. Entier", "B. Chaîne", "C. Booléen"],
+            "answer": "A",
+            "explanation": "La fonction retourne un entier"
+        },
+        {
+            "question": "Quelle structure de contrôle est utilisée dans ce code ?",
+            "choices": ["A. Boucle for", "B. Condition if", "C. Fonction récursive"],
+            "answer": "B",
+            "explanation": "Le code utilise une condition if"
+        },
+        {
+            "question": "Quelle est la portée de la variable a ?",
+            "choices": ["A. Locale à la fonction", "B. Globale", "C. Statique"],
+            "answer": "A",
+            "explanation": "La variable a est locale à la fonction"
+        },
+        {
+            "question": "Quel est le type de la variable b ?",
+            "choices": ["A. Entier", "B. Liste", "C. Chaîne"],
+            "answer": "A",
+            "explanation": "b est un entier"
+        },
+        {
+            "question": "Quel mot-clé est utilisé pour définir une fonction en Python ?",
+            "choices": ["A. func", "B. def", "C. function"],
+            "answer": "B",
+            "explanation": "def est utilisé pour définir une fonction"
+        },
+        {
+            "question": "Comment appelle-t-on une fonction qui s'appelle elle-même ?",
+            "choices": ["A. Fonction itérative", "B. Fonction récursive", "C. Fonction lambda"],
+            "answer": "B",
+            "explanation": "Une fonction récursive s'appelle elle-même"
+        },
+        {
+            "question": "Quelle est la bonne syntaxe pour un commentaire en Python ?",
+            "choices": ["A. // commentaire", "B. # commentaire", "C. <!-- commentaire -->"],
+            "answer": "B",
+            "explanation": "Le symbole # sert pour les commentaires"
+        },
+        {
+            "question": "Quelle est la sortie de print(2 ** 3) ?",
+            "choices": ["A. 6", "B. 8", "C. 9"],
+            "answer": "B",
+            "explanation": "2 puissance 3 est égal à 8"
+        }
+    ]
 
 @app.route("/generate_qcm", methods=["POST"])
 def generate_qcm():
     data = request.get_json()
-    code_block = data.get("code_block")
+    code = data.get("code_block", "")
     author = data.get("author", "anonymous")
 
-    if not code_block:
-        return jsonify({"error": "Le champ 'code_block' est requis."}), 400
+    if not code.strip():
+        return jsonify({"error": "Code manquant"}), 400
 
-    prompt = f"""
-Tu es un assistant pédagogique. Génère un QCM au **format JSON strict** à partir du code suivant.
-Le format **doit être uniquement** :
+    qcm_data = fake_qcm_generator(code)
+    qcm_id = str(uuid.uuid4())
 
-{{
-  "questions": [
-    {{
-      "question": "....",
-      "choices": ["...", "...", "..."],
-      "answer": 0
-    }}
-  ]
-}}
+    db = load_data()
+    db["qcms"][qcm_id] = {
+        "author": author,
+        "code": code,
+        "questions": qcm_data
+    }
+    save_data(db)
 
-Ne donne **aucune explication** autour. Juste ce JSON.
+    return jsonify({
+        "qcm_id": qcm_id,
+        "questions": qcm_data
+    })
 
-Voici le code :
-{code_block}
-"""
+@app.route("/submit_answers", methods=["POST"])
+def submit_answers():
+    data = request.get_json()
+    qcm_id = data.get("qcm_id")
+    student_name = data.get("student_name")
+    answers = data.get("answers")
 
-    try:
-        # Appel à Ollama
-        response = requests.post(
-            OLLAMA_API_URL,
-            json={"model": "llama2", "prompt": prompt, "stream": False}
-        )
-        result = response.json()
-        generated = result.get("response", "")
+    if not all([qcm_id, student_name, answers]):
+        return jsonify({"error": "Champs requis manquants"}), 400
 
-        # Extraction du vrai JSON
-        match = re.search(r"{[\s\S]*}", generated)
-        if not match:
-            return jsonify({
-                "error": "Erreur de parsing du JSON généré par Ollama",
-                "details": generated
-            }), 500
+    db = load_data()
+    db["responses"].append({
+        "qcm_id": qcm_id,
+        "student_name": student_name,
+        "answers": answers
+    })
+    save_data(db)
 
-        qcm_data = json.loads(match.group())
+    return jsonify({"status": "Réponses reçues avec succès !"})
 
-        # Création du dossier de l'auteur
-        author_folder = os.path.join(QCM_FOLDER, author)
-        os.makedirs(author_folder, exist_ok=True)
+@app.route("/healthz")
+def health():
+    return jsonify({"status": "ok"})
 
-        # Enregistrement du fichier
-        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        file_path = os.path.join(author_folder, f"qcm_{timestamp}.json")
-        with open(file_path, "w") as f:
-            json.dump(qcm_data, f, indent=2)
+# Servir le frontend Angular (build production)
+@app.route('/')
+def serve_frontend():
+    return send_from_directory(app.static_folder, 'index.html')
 
-        return jsonify({
-            "message": "QCM généré et enregistré avec succès",
-            "path": file_path,
-            "qcm": qcm_data
-        }), 200
+@app.route('/<path:path>')
+def serve_static(path):
+    return send_from_directory(app.static_folder, path)
 
-    except Exception as e:
-        return jsonify({
-            "error": "Erreur lors de la génération du QCM",
-            "details": str(e)
-        }), 500
-
-@app.route("/get_qcm/<author>", methods=["GET"])
-def get_qcm(author):
-    author_folder = os.path.join(QCM_FOLDER, author)
-    if not os.path.exists(author_folder):
-        return jsonify({"error": f"Aucun QCM trouvé pour l'auteur {author}"}), 404
-
-    qcm_list = []
-    for filename in os.listdir(author_folder):
-        if filename.endswith(".json"):
-            with open(os.path.join(author_folder, filename), "r") as f:
-                try:
-                    qcm = json.load(f)
-                    qcm_list.append(qcm)
-                except json.JSONDecodeError:
-                    continue
-
-    if not qcm_list:
-        return jsonify({"error": "Aucun QCM valide trouvé."}), 404
-
-    return jsonify(qcm_list), 200
-
-@app.route("/healthz", methods=["GET"])
-def health_check():
-    return jsonify({"status": "ok"}), 200
-
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)

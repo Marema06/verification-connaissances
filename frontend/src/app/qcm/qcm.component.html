@@ -1,42 +1,66 @@
-<div class="p-4 space-y-6">
-  <h2 class="text-2xl font-bold">QCM de {{ author }}</h2>
 
-  <div *ngIf="qcmList.length === 0">
-    Aucun QCM trouvé pour {{ author }}.
-  </div>
+<div class="container">
+  <header class="header">
+    <h1 class="icon-title"><i class="fas fa-graduation-cap"></i> Générateur de QCM Technique</h1>
+    <p>Transformez votre code en questions d'évaluation</p>
+  </header>
 
-  <div *ngFor="let qcm of qcmList; let i = index" class="bg-white shadow-lg rounded-2xl p-4 space-y-4">
-    <h3 class="text-xl font-semibold">QCM {{ i + 1 }}</h3>
+  <div class="main">
+    <section class="card">
+      <h2 class="icon-title"><i class="fas fa-code"></i> Collez votre code ici</h2>
+      <textarea [(ngModel)]="codeInput" placeholder="Coller votre code ici..."></textarea>
+      <button (click)="generateQcm()" [disabled]="isGenerating">
+        <i *ngIf="isGenerating" class="fas fa-spinner fa-spin"></i>
+        <i *ngIf="!isGenerating" class="fas fa-bolt"></i>
+        <span>{{ isGenerating ? 'Génération en cours...' : 'Générer le QCM' }}</span>
+      </button>
+    </section>
 
-    <form *ngIf="qcm.questions && qcm.questions.length > 0">
-      <div *ngFor="let question of qcm.questions; let j = index" class="mb-4">
-        <p class="font-medium">{{ question.question }}</p>
-        <div class="space-y-2 ml-4">
-          <label *ngFor="let choice of question.choices; let k = index" class="flex items-center space-x-2">
-            <input
-              type="radio"
-              [name]="'qcm' + i + '_q' + j"
-              [value]="k"
-              [(ngModel)]="userAnswers[i][j]"
-              [disabled]="submitted"
-              class="accent-blue-500"
-            />
-            <span>{{ choice }}</span>
-          </label>
-        </div>
+    <section class="card">
+      <div class="icon-title" style="justify-content: space-between; display: flex;">
+        <h2><i class="fas fa-file-alt"></i> Résultat du QCM</h2>
+        <span class="timer">{{ timer | number:'2.0' }}</span>
       </div>
-    </form>
 
-    <div *ngIf="submitted" class="text-green-700 font-bold">
-      Score : {{ getScore(i) }} / {{ qcm.questions.length }}
-    </div>
+      <div class="progress-bar">
+        <div class="progress-bar-inner" [style.width.%]="progress"></div>
+      </div>
+
+      <div *ngIf="!qcmGenerated" class="empty-state">
+        <i class="fas fa-file-alt fa-3x" style="color:#d1d5db"></i>
+        <p>Votre QCM apparaîtra ici</p>
+        <p class="text-sm">Après avoir collé votre code et cliqué sur "Générer"</p>
+      </div>
+
+      <form *ngIf="qcmGenerated" (ngSubmit)="submitAnswers()" class="space-y-6">
+        <div *ngFor="let q of questions; let i = index" class="question-box">
+          <h3>{{ q.question }}</h3>
+          <div *ngFor="let opt of q.choices; let j = index" class="option"
+               [ngClass]="{
+                 'correct': submitted && j === ['A','B','C'].indexOf(q.answer),
+                 'incorrect': submitted && answers[i]?.selected === j && j !== ['A','B','C'].indexOf(q.answer)
+               }">
+
+            <input type="radio"
+                   [name]="'q' + i"
+                   [value]="j"
+                   [(ngModel)]="answers[i].selected"
+                   [disabled]="submitted" />
+
+            <span (click)="!submitted && selectAnswer(i, j)">{{ opt }}</span>
+
+            <span *ngIf="feedback[i]" class="text-green-600 ml-auto font-semibold">
+              {{ feedback[i] }}
+            </span>
+          </div>
+        </div>
+
+        <button type="submit" class="submit-btn" [disabled]="submitted">Soumettre mes réponses</button>
+
+        <div *ngIf="submitted" class="score-box">
+          <h3>Votre score : {{ score }} / {{ questions.length }}</h3>
+        </div>
+      </form>
+    </section>
   </div>
-
-  <button
-    (click)="onSubmit()"
-    class="bg-blue-600 text-white px-4 py-2 rounded-xl shadow hover:bg-blue-700"
-    [disabled]="submitted || qcmList.length === 0"
-  >
-    Soumettre
-  </button>
 </div>

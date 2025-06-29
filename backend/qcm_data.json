@@ -1,0 +1,340 @@
+{
+  "qcms": {
+    "72809e06-9252-41d4-8a54-7ddcff879e79": {
+      "author": "student1",
+      "code": "def addition(a, b):\n    return a + b\n\nprint(addition(5, 3))",
+      "questions": [
+        {
+          "question": "Que fait ce code ?",
+          "choices": [
+            "A. Additionne deux nombres",
+            "B. Multiplie deux nombres",
+            "C. Cr\u00e9e une cha\u00eene"
+          ],
+          "answer": "A",
+          "explanation": "Le code additionne deux nombres via return a + b"
+        },
+        {
+          "question": "Quelle est la sortie de la fonction si a = 2 et b = 3 ?",
+          "choices": [
+            "A. 5",
+            "B. 6",
+            "C. 23"
+          ],
+          "answer": "A",
+          "explanation": "2 + 3 = 5"
+        },
+        {
+          "question": "Quel est le type de retour de la fonction ?",
+          "choices": [
+            "A. Entier",
+            "B. Cha\u00eene",
+            "C. Bool\u00e9en"
+          ],
+          "answer": "A",
+          "explanation": "La fonction retourne un entier"
+        }
+      ]
+    },
+    "30fbb5f6-d3d0-461b-bf43-7ec9bb42a393": {
+      "author": "student1",
+      "code": "def addition(a, b):\n    return a + b\n",
+      "questions": [
+        {
+          "question": "Que fait ce code ?",
+          "choices": [
+            "A. Additionne deux nombres",
+            "B. Multiplie deux nombres",
+            "C. Cr\u00e9e une cha\u00eene"
+          ],
+          "answer": "A",
+          "explanation": "Le code additionne deux nombres via return a + b"
+        },
+        {
+          "question": "Quelle est la sortie de la fonction si a = 2 et b = 3 ?",
+          "choices": [
+            "A. 5",
+            "B. 6",
+            "C. 23"
+          ],
+          "answer": "A",
+          "explanation": "2 + 3 = 5"
+        },
+        {
+          "question": "Quel est le type de retour de la fonction ?",
+          "choices": [
+            "A. Entier",
+            "B. Cha\u00eene",
+            "C. Bool\u00e9en"
+          ],
+          "answer": "A",
+          "explanation": "La fonction retourne un entier"
+        }
+      ]
+    },
+    "515e7ae9-14ff-45cc-9fac-98bfabb377d3": {
+      "author": "student1",
+      "code": "def addition(a, b):\n    return a + b",
+      "questions": [
+        {
+          "question": "Que fait ce code ?",
+          "choices": [
+            "A. Additionne deux nombres",
+            "B. Multiplie deux nombres",
+            "C. Cr\u00e9e une cha\u00eene"
+          ],
+          "answer": "A",
+          "explanation": "Le code additionne deux nombres via return a + b"
+        },
+        {
+          "question": "Quelle est la sortie de la fonction si a = 2 et b = 3 ?",
+          "choices": [
+            "A. 5",
+            "B. 6",
+            "C. 23"
+          ],
+          "answer": "A",
+          "explanation": "2 + 3 = 5"
+        },
+        {
+          "question": "Quel est le type de retour de la fonction ?",
+          "choices": [
+            "A. Entier",
+            "B. Cha\u00eene",
+            "C. Bool\u00e9en"
+          ],
+          "answer": "A",
+          "explanation": "La fonction retourne un entier"
+        },
+        {
+          "question": "Quelle structure de contr\u00f4le est utilis\u00e9e dans ce code ?",
+          "choices": [
+            "A. Boucle for",
+            "B. Condition if",
+            "C. Fonction r\u00e9cursive"
+          ],
+          "answer": "B",
+          "explanation": "Le code utilise une condition if"
+        },
+        {
+          "question": "Quelle est la port\u00e9e de la variable a ?",
+          "choices": [
+            "A. Locale \u00e0 la fonction",
+            "B. Globale",
+            "C. Statique"
+          ],
+          "answer": "A",
+          "explanation": "La variable a est locale \u00e0 la fonction"
+        },
+        {
+          "question": "Quel est le type de la variable b ?",
+          "choices": [
+            "A. Entier",
+            "B. Liste",
+            "C. Cha\u00eene"
+          ],
+          "answer": "A",
+          "explanation": "b est un entier"
+        },
+        {
+          "question": "Quel mot-cl\u00e9 est utilis\u00e9 pour d\u00e9finir une fonction en Python ?",
+          "choices": [
+            "A. func",
+            "B. def",
+            "C. function"
+          ],
+          "answer": "B",
+          "explanation": "def est utilis\u00e9 pour d\u00e9finir une fonction"
+        },
+        {
+          "question": "Comment appelle-t-on une fonction qui s'appelle elle-m\u00eame ?",
+          "choices": [
+            "A. Fonction it\u00e9rative",
+            "B. Fonction r\u00e9cursive",
+            "C. Fonction lambda"
+          ],
+          "answer": "B",
+          "explanation": "Une fonction r\u00e9cursive s'appelle elle-m\u00eame"
+        },
+        {
+          "question": "Quelle est la bonne syntaxe pour un commentaire en Python ?",
+          "choices": [
+            "A. // commentaire",
+            "B. # commentaire",
+            "C. <!-- commentaire -->"
+          ],
+          "answer": "B",
+          "explanation": "Le symbole # sert pour les commentaires"
+        },
+        {
+          "question": "Quelle est la sortie de print(2 ** 3) ?",
+          "choices": [
+            "A. 6",
+            "B. 8",
+            "C. 9"
+          ],
+          "answer": "B",
+          "explanation": "2 puissance 3 est \u00e9gal \u00e0 8"
+        }
+      ]
+    },
+    "0f5129c2-160a-4a54-9def-7a8f16da0aa7": {
+      "author": "student1",
+      "code": "def addition(a, b):\n    return a + b",
+      "questions": [
+        {
+          "question": "Que fait ce code ?",
+          "choices": [
+            "A. Additionne deux nombres",
+            "B. Multiplie deux nombres",
+            "C. Cr\u00e9e une cha\u00eene"
+          ],
+          "answer": "A",
+          "explanation": "Le code additionne deux nombres via return a + b"
+        },
+        {
+          "question": "Quelle est la sortie de la fonction si a = 2 et b = 3 ?",
+          "choices": [
+            "A. 5",
+            "B. 6",
+            "C. 23"
+          ],
+          "answer": "A",
+          "explanation": "2 + 3 = 5"
+        },
+        {
+          "question": "Quel est le type de retour de la fonction ?",
+          "choices": [
+            "A. Entier",
+            "B. Cha\u00eene",
+            "C. Bool\u00e9en"
+          ],
+          "answer": "A",
+          "explanation": "La fonction retourne un entier"
+        },
+        {
+          "question": "Quelle structure de contr\u00f4le est utilis\u00e9e dans ce code ?",
+          "choices": [
+            "A. Boucle for",
+            "B. Condition if",
+            "C. Fonction r\u00e9cursive"
+          ],
+          "answer": "B",
+          "explanation": "Le code utilise une condition if"
+        },
+        {
+          "question": "Quelle est la port\u00e9e de la variable a ?",
+          "choices": [
+            "A. Locale \u00e0 la fonction",
+            "B. Globale",
+            "C. Statique"
+          ],
+          "answer": "A",
+          "explanation": "La variable a est locale \u00e0 la fonction"
+        },
+        {
+          "question": "Quel est le type de la variable b ?",
+          "choices": [
+            "A. Entier",
+            "B. Liste",
+            "C. Cha\u00eene"
+          ],
+          "answer": "A",
+          "explanation": "b est un entier"
+        },
+        {
+          "question": "Quel mot-cl\u00e9 est utilis\u00e9 pour d\u00e9finir une fonction en Python ?",
+          "choices": [
+            "A. func",
+            "B. def",
+            "C. function"
+          ],
+          "answer": "B",
+          "explanation": "def est utilis\u00e9 pour d\u00e9finir une fonction"
+        },
+        {
+          "question": "Comment appelle-t-on une fonction qui s'appelle elle-m\u00eame ?",
+          "choices": [
+            "A. Fonction it\u00e9rative",
+            "B. Fonction r\u00e9cursive",
+            "C. Fonction lambda"
+          ],
+          "answer": "B",
+          "explanation": "Une fonction r\u00e9cursive s'appelle elle-m\u00eame"
+        },
+        {
+          "question": "Quelle est la bonne syntaxe pour un commentaire en Python ?",
+          "choices": [
+            "A. // commentaire",
+            "B. # commentaire",
+            "C. <!-- commentaire -->"
+          ],
+          "answer": "B",
+          "explanation": "Le symbole # sert pour les commentaires"
+        },
+        {
+          "question": "Quelle est la sortie de print(2 ** 3) ?",
+          "choices": [
+            "A. 6",
+            "B. 8",
+            "C. 9"
+          ],
+          "answer": "B",
+          "explanation": "2 puissance 3 est \u00e9gal \u00e0 8"
+        }
+      ]
+    }
+  },
+  "responses": [
+    {
+      "qcm_id": "72809e06-9252-41d4-8a54-7ddcff879e79",
+      "student_name": "student1",
+      "answers": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "qcm_id": "30fbb5f6-d3d0-461b-bf43-7ec9bb42a393",
+      "student_name": "student1",
+      "answers": [
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "qcm_id": "515e7ae9-14ff-45cc-9fac-98bfabb377d3",
+      "student_name": "student1",
+      "answers": [
+        0,
+        1,
+        2,
+        1,
+        1,
+        1,
+        0,
+        2,
+        1,
+        0
+      ]
+    },
+    {
+      "qcm_id": "0f5129c2-160a-4a54-9def-7a8f16da0aa7",
+      "student_name": "student1",
+      "answers": [
+        0,
+        0,
+        2,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        1
+      ]
+    }
+  ]
+}

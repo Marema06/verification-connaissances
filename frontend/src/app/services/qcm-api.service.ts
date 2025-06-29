@@ -1,17 +1,25 @@
-// src/app/services/qcm-api.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class QcmApiService {
-  private apiUrl = 'http://localhost:5000/get_qcm'; // à adapter si besoin
+  private apiUrl = 'http://localhost:5000';
 
   constructor(private http: HttpClient) {}
 
-  getQCMsByAuthor(author: string): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/${author}`);
+  generateQcmFromCode(code: string, author: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/generate_qcm`, {
+      code_block: code,
+      author: author
+    });
+  }
+
+  submitAnswers(qcmId: string, studentName: string, answers: number[]): Observable<any> {
+    return this.http.post(`${this.apiUrl}/submit_answers`, {
+      qcm_id: qcmId,
+      student_name: studentName,
+      answers: answers
+    });
   }
 }
