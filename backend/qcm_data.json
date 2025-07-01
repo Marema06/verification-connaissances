@@ -389,6 +389,112 @@
           "explanation": "2 puissance 3 est \u00e9gal \u00e0 8"
         }
       ]
+    },
+    "bfe5ef58-fff3-44c3-af6b-1c06308f838c": {
+      "author": "student1",
+      "code": "def addition(a, b):\nreturn a + b",
+      "questions": [
+        {
+          "question": "Que fait ce code ?",
+          "choices": [
+            "A. Additionne deux nombres",
+            "B. Multiplie deux nombres",
+            "C. Cr\u00e9e une cha\u00eene"
+          ],
+          "answer": "A",
+          "explanation": "Le code additionne deux nombres via return a + b"
+        },
+        {
+          "question": "Quelle est la sortie de la fonction si a = 2 et b = 3 ?",
+          "choices": [
+            "A. 5",
+            "B. 6",
+            "C. 23"
+          ],
+          "answer": "A",
+          "explanation": "2 + 3 = 5"
+        },
+        {
+          "question": "Quel est le type de retour de la fonction ?",
+          "choices": [
+            "A. Entier",
+            "B. Cha\u00eene",
+            "C. Bool\u00e9en"
+          ],
+          "answer": "A",
+          "explanation": "La fonction retourne un entier"
+        },
+        {
+          "question": "Quelle structure de contr\u00f4le est utilis\u00e9e dans ce code ?",
+          "choices": [
+            "A. Boucle for",
+            "B. Condition if",
+            "C. Fonction r\u00e9cursive"
+          ],
+          "answer": "B",
+          "explanation": "Le code utilise une condition if"
+        },
+        {
+          "question": "Quelle est la port\u00e9e de la variable a ?",
+          "choices": [
+            "A. Locale \u00e0 la fonction",
+            "B. Globale",
+            "C. Statique"
+          ],
+          "answer": "A",
+          "explanation": "La variable a est locale \u00e0 la fonction"
+        },
+        {
+          "question": "Quel est le type de la variable b ?",
+          "choices": [
+            "A. Entier",
+            "B. Liste",
+            "C. Cha\u00eene"
+          ],
+          "answer": "A",
+          "explanation": "b est un entier"
+        },
+        {
+          "question": "Quel mot-cl\u00e9 est utilis\u00e9 pour d\u00e9finir une fonction en Python ?",
+          "choices": [
+            "A. func",
+            "B. def",
+            "C. function"
+          ],
+          "answer": "B",
+          "explanation": "def est utilis\u00e9 pour d\u00e9finir une fonction"
+        },
+        {
+          "question": "Comment appelle-t-on une fonction qui s'appelle elle-m\u00eame ?",
+          "choices": [
+            "A. Fonction it\u00e9rative",
+            "B. Fonction r\u00e9cursive",
+            "C. Fonction lambda"
+          ],
+          "answer": "B",
+          "explanation": "Une fonction r\u00e9cursive s'appelle elle-m\u00eame"
+        },
+        {
+          "question": "Quelle est la bonne syntaxe pour un commentaire en Python ?",
+          "choices": [
+            "A. // commentaire",
+            "B. # commentaire",
+            "C. <!-- commentaire -->"
+          ],
+          "answer": "B",
+          "explanation": "Le symbole # sert pour les commentaires"
+        },
+        {
+          "question": "Quelle est la sortie de print(2 ** 3) ?",
+          "choices": [
+            "A. 6",
+            "B. 8",
+            "C. 9"
+          ],
+          "answer": "B",
+          "explanation": "2 puissance 3 est \u00e9gal \u00e0 8"
+        }
+      ]
     }
   },
   "responses": [
@@ -439,6 +545,22 @@
         1,
         0,
         0,
+        1
+      ]
+    },
+    {
+      "qcm_id": "bfe5ef58-fff3-44c3-af6b-1c06308f838c",
+      "student_name": "student1",
+      "answers": [
+        2,
+        0,
+        1,
+        2,
+        1,
+        1,
+        2,
+        2,
+        1,
         1
       ]
     }

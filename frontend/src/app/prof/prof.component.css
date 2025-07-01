@@ -1,0 +1,99 @@
+.prof-container {
+  max-width: 1000px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  background-color: #fefefe;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.page-title {
+  text-align: center;
+  margin-bottom: 2rem;
+  color: #2c3e50;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.toolbar button {
+  padding: 10px 16px;
+  border: none;
+  background-color: #3498db;
+  color: white;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.toolbar button:hover {
+  background-color: #2980b9;
+}
+
+.chart-wrapper {
+  max-width: 50px;
+  margin: 0rem auto;
+}
+
+.responses-section {
+  margin-top: 2rem;
+}
+
+.response-card {
+  background-color: #f9f9f9;
+  border-left: 5px solid #3498db;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.score {
+  font-size: 1.1rem;
+  color: #2d3436;
+}
+
+.question-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 1rem;
+}
+
+.question-list li {
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background-color: #eef5fa;
+  border-radius: 4px;
+}
+
+.explanation {
+  font-style: italic;
+  color: #636e72;
+}
+
+.loading {
+  text-align: center;
+  font-style: italic;
+  color: #888;
+}
+h1 {
+  margin-bottom: 1rem;
+}
+
+button {
+  margin: 0 0.5rem;
+}
+
+.top-buttons {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+main {
+  padding-top: 0 !important;
+}

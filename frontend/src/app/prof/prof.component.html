@@ -1,0 +1,33 @@
+<main class="prof-container">
+  <h1 class="page-title">👨‍🏫 Tableau de bord professeur</h1>
+
+  <div class="toolbar">
+    <button (click)="loadResponses()">🔄 Recharger</button>
+    <button (click)="exportCSV()">📁 Exporter CSV</button>
+    <button (click)="exportPDF()">📄 Exporter PDF</button>
+  </div>
+
+  <div class="chart-wrapper">
+    <canvas #myChart></canvas>
+  </div>
+
+  <section class="responses-section">
+    <div *ngFor="let r of allResponses" class="response-card">
+      <h3>👤 {{ r.student_name }} — QCM ID: {{ r.qcm_id }}</h3>
+      <p class="score">🎯 Score : {{ getCorrectCount(r.questions, r.answers) }} / {{ r.questions.length }}</p>
+
+      <ul class="question-list">
+        <li *ngFor="let q of r.questions; let i = index">
+          <p><strong>Q{{ i + 1 }}:</strong> {{ q.question }}</p>
+          <p>🔸 Réponse élève :
+            <strong>{{ q.choices[r.answers[i]] || 'Non répondu' }}</strong>
+          </p>
+          <p>✅ Bonne réponse :
+            <strong>{{ q.choices[['A','B','C'].indexOf(q.answer)] }}</strong>
+          </p>
+          <p class="explanation">💡 {{ q.explanation }}</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+</main>

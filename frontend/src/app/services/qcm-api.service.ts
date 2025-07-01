@@ -9,17 +9,14 @@ export class QcmApiService {
   constructor(private http: HttpClient) {}
 
   generateQcmFromCode(code: string, author: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/generate_qcm`, {
-      code_block: code,
-      author: author
-    });
+    return this.http.post(`${this.apiUrl}/generate_qcm`, { code_block: code, author });
   }
 
   submitAnswers(qcmId: string, studentName: string, answers: number[]): Observable<any> {
-    return this.http.post(`${this.apiUrl}/submit_answers`, {
-      qcm_id: qcmId,
-      student_name: studentName,
-      answers: answers
-    });
+    return this.http.post(`${this.apiUrl}/submit_answers`, { qcm_id: qcmId, student_name: studentName, answers });
+  }
+
+  getAllResponses(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/all_responses`);
   }
 }
